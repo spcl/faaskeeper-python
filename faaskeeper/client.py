@@ -1,7 +1,7 @@
 
 import uuid
 
-from faaskeeper.aws import AWSClient
+from faaskeeper.providers.aws import AWSClient
 
 class FaaSKeeperClient:
 
@@ -40,22 +40,23 @@ class FaaSKeeperClient:
     # TODO: ephemeral nodes
     # TODO: ACL
     # TODO: makepath
+    # TODO: async call with callback + ctx
     def create(self, path: str, value: str = b"", acl: str = None,
             ephemeral: bool = False, sequence: bool = False,
             makepath: bool = False) -> str:
         self._provider_client.send_request(
-            table=f"{self._service_name}-write_queue",
-            name=self._service_name,
+            table=f"{self._service_name}-write-queue",
+            service_name=self._service_name,
             request_id=f"{self._session_id}-{self._write_requests_count}",
-            data = {
-                op: "create_node",
-                path: path,
-                user: self._session_id,
-                version: -1,
-                flags: 0,
-                data: value,
-                source_ip: "192.168.0.10",
-                sourcePort: 12000
+            data={
+                "op": "create_node",
+                "path": path,
+                "user": self._session_id,
+                "version": -1,
+                "flags": 0,
+                "data": value,
+                "sourceIP": "192.168.0.10",
+                "sourcePort": 12000
             }
         )
         #self._writer_queue.append(f"{self._session_id}-{self._write_requests_count}")
