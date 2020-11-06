@@ -1,21 +1,21 @@
-
 import uuid
 
+from faaskeeper.queue import WorkQueue, WorkerThread
+from faaskeeper.operations import CreateNode
 from faaskeeper.response import ResponseHandler
 from faaskeeper.providers.aws import AWSClient
 
+
 class FaaSKeeperClient:
 
-    _providers = {
-        "aws": AWSClient
-    }
+    _providers = {"aws": AWSClient}
 
-    def __init__(self, provider: str, service_name: str, port: int = -1, verbose: bool = False):
+    def __init__(
+        self, provider: str, service_name: str, port: int = -1, verbose: bool = False
+    ):
         self._client_id = str(uuid.uuid4())[0:8]
         self._service_name = service_name
         self._session_id = None
-        #self._writer_queue = []
-        self._write_requests_count = 0
         self._provider_client = FaaSKeeperClient._providers[provider](verbose)
         self._port = port
 
@@ -28,6 +28,14 @@ class FaaSKeeperClient:
         self._session_id = str(uuid.uuid4())[0:8]
         self._response_handler = ResponseHandler(self._port)
         self._response_handler.start()
+        self._work_queue = WorkQueue()
+        self._work_thread = WorkerThread(
+            self._session_id,
+            self._service_name,
+            self._provider_client,
+            self._work_queue,
+            self._response_handler,
+        )
 
     def stop(self):
         """
@@ -38,33 +46,32 @@ class FaaSKeeperClient:
         """
         # notify service about closure
         self._session_id = None
-        self._write_requests_count = 0
 
-    # TODO: sequence nodes
-    # TODO: ephemeral nodes
     # TODO: ACL
-    # TODO: makepath
-    # TODO: async call with callback + ctx
-    def create(self, path: str, value: str = b"", acl: str = None,
-            ephemeral: bool = False, sequence: bool = False,
-            makepath: bool = False) -> str:
-        self._provider_client.send_request(
-            table=f"{self._service_name}-write-queue",
-            service_name=self._service_name,
-            request_id=f"{self._session_id}-{self._write_requests_count}",
-            data={
-                "op": "create_node",
-                "path": path,
-                "user": self._session_id,
-                "version": -1,
-                "flags": 0,
-                "data": value,
-                "sourceIP": self._response_handler.address,
-                "sourcePort": self._response_handler.port
-            }
+    def create(
+        self,
+        path: str,
+        value: bytes = b"",
+        acl: str = None,
+        ephemeral: bool = False,
+        sequential: bool = False,
+    ) -> str:
+        return self.create_async(path, value, acl, ephemeral, sequential)#.get()
+
+    def create_async(
+        self,
+        path: str,
+        value: bytes = b"",
+        acl: str = None,
+        ephemeral: bool = False,
+        sequential: bool = False,
+    ) -> str:
+        flags = 0
+        if ephemeral:
+            flags |= 1
+        if sequential:
+            flags |= 2
+
+        return self._work_queue.add_request(
+            CreateNode(session_id=self._session_id, path=path, value=value, acl=0, flags=flags)
         )
-        #self._writer_queue.append(f"{self._session_id}-{self._write_requests_count}")
-        self._write_requests_count += 1
-
-        self._response_handler.stop()
-

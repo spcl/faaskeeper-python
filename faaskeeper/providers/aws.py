@@ -1,13 +1,14 @@
-
 import logging
 from typing import Dict, Union
 
 import boto3
 
-class AWSClient:
+from faaskeeper.providers.provider import ProviderClient
 
+
+class AWSClient(ProviderClient):
     def __init__(self, verbose: bool):
-        self._dynamodb = boto3.client('dynamodb')
+        self._dynamodb = boto3.client("dynamodb")
 
     @staticmethod
     def _dynamodb_type(val):
@@ -32,17 +33,20 @@ class AWSClient:
             for key, value in items.items()
         }
 
-    def send_request(self, table: str, service_name: str, request_id: str, data: Dict[str, Union[str, bytes, int]]):
+    def send_request(
+        self,
+        table: str,
+        service_name: str,
+        request_id: str,
+        data: Dict[str, Union[str, bytes, int]],
+    ):
         try:
             ret = self._dynamodb.put_item(
                 TableName=table,
-                Item=AWSClient._convert_items({
-                    **data,
-                    "key": service_name,
-                    "timestamp": request_id
-                })
+                Item=AWSClient._convert_items(
+                    {**data, "key": service_name, "timestamp": request_id}
+                ),
             )
         except Exception as e:
             logging.error("Failure!")
             logging.error(e)
-        
