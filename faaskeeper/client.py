@@ -3,6 +3,7 @@ import uuid
 from faaskeeper.queue import WorkQueue, EventQueue, ResponseListener, WorkerThread
 from faaskeeper.operations import CreateNode
 from faaskeeper.providers.aws import AWSClient
+from faaskeeper.threading import Future
 
 
 class FaaSKeeperClient:
@@ -56,7 +57,7 @@ class FaaSKeeperClient:
         ephemeral: bool = False,
         sequential: bool = False,
     ) -> str:
-        return self.create_async(path, value, acl, ephemeral, sequential)  # .get()
+        return self.create_async(path, value, acl, ephemeral, sequential).get()
 
     def create_async(
         self,
@@ -65,7 +66,7 @@ class FaaSKeeperClient:
         acl: str = None,
         ephemeral: bool = False,
         sequential: bool = False,
-    ) -> str:
+    ) -> Future:
         # FIXME: add exception classes
         if not self._session_id:
             raise RuntimeError()
@@ -75,8 +76,11 @@ class FaaSKeeperClient:
         if sequential:
             flags |= 2
 
-        return self._work_queue.add_request(
+        future = Future()
+        self._work_queue.add_request(
             CreateNode(
                 session_id=self._session_id, path=path, value=value, acl=0, flags=flags
-            )
+            ),
+            future
         )
+        return future

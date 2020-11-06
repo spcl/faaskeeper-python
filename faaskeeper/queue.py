@@ -7,6 +7,7 @@ from collections import deque
 from typing import Callable, Deque, Dict, Tuple
 
 from faaskeeper.operations import Operation
+from faaskeeper.threading import Future
 from faaskeeper.providers.provider import ProviderClient
 
 
@@ -18,11 +19,11 @@ from faaskeeper.providers.provider import ProviderClient
 class WorkQueue:
     def __init__(self):
         self._request_count = 0
-        self._queue: Deque[Tuple[int, Operation]] = deque()
+        self._queue: Deque[Tuple[int, Operation, Future]] = deque()
         self._wait_event = Event()
 
-    def add_request(self, op: Operation):
-        self._queue.append((self._request_count, op))
+    def add_request(self, op: Operation, fut: Future):
+        self._queue.append((self._request_count, op, fut))
         self._request_count += 1
         # only if queue was empty
         if len(self._queue) == 1:
@@ -32,7 +33,7 @@ class WorkQueue:
     def empty(self) -> bool:
         return len(self._queue) == 0
 
-    def pop(self) -> Tuple[int, Operation]:
+    def pop(self) -> Tuple[int, Operation, Future]:
         return self._queue.popleft()
 
 
@@ -114,7 +115,7 @@ class WorkerThread(Thread):
         response_handler: ResponseListener,
         event_queue: EventQueue,
     ):
-        super().__init__()#daemon=True)
+        super().__init__(daemon=True)
         self._session_id = session_id
         self._service_name = service_name
         self._queue = queue
@@ -132,7 +133,7 @@ class WorkerThread(Thread):
 
         def callback(response):
             nonlocal event, result
-            print("Wake up!" ,response)
+            print("Wake up!", response)
             event.set()
             event.clear()
             result = response
@@ -141,7 +142,7 @@ class WorkerThread(Thread):
 
             # FIXME: add addresses of handler thread
             if not self._queue.empty():
-                req_id, request = self._queue.pop()
+                req_id, request, future = self._queue.pop()
                 self._event_queue.add_callback(req_id, callback)
                 self._provider_client.send_request(
                     table=f"{self._service_name}-write-queue",
@@ -154,6 +155,7 @@ class WorkerThread(Thread):
                     },
                 )
                 event.wait()
+                request.process_result(result, future)
                 print("Woken up!")
                 print(result)
             else:
