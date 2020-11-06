@@ -10,6 +10,10 @@ class Operation(ABC):
     def generate_request(self) -> dict:
         pass
 
+    @abstractmethod
+    def returns_directly(self) -> bool:
+        pass
+
 
 class CreateNode(Operation):
     def __init__(self, session_id: str, path: str, value: bytes, acl: int, flags: int):
@@ -25,3 +29,6 @@ class CreateNode(Operation):
             "flags": 0,
             "data": self._value,
         }
+
+    def returns_directly(self) -> bool:
+        return False

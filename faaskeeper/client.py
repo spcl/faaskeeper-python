@@ -1,8 +1,7 @@
 import uuid
 
-from faaskeeper.queue import WorkQueue, WorkerThread
+from faaskeeper.queue import WorkQueue, EventQueue, ResponseListener, WorkerThread
 from faaskeeper.operations import CreateNode
-from faaskeeper.response import ResponseHandler
 from faaskeeper.providers.aws import AWSClient
 
 
@@ -26,15 +25,16 @@ class FaaSKeeperClient:
             3) Add yourself to the FK service.
         """
         self._session_id = str(uuid.uuid4())[0:8]
-        self._response_handler = ResponseHandler(self._port)
-        self._response_handler.start()
         self._work_queue = WorkQueue()
+        self._event_queue = EventQueue()
+        self._response_handler = ResponseListener(self._event_queue, self._port)
         self._work_thread = WorkerThread(
             self._session_id,
             self._service_name,
             self._provider_client,
             self._work_queue,
             self._response_handler,
+            self._event_queue,
         )
 
     def stop(self):
@@ -56,7 +56,7 @@ class FaaSKeeperClient:
         ephemeral: bool = False,
         sequential: bool = False,
     ) -> str:
-        return self.create_async(path, value, acl, ephemeral, sequential)#.get()
+        return self.create_async(path, value, acl, ephemeral, sequential)  # .get()
 
     def create_async(
         self,
@@ -66,6 +66,9 @@ class FaaSKeeperClient:
         ephemeral: bool = False,
         sequential: bool = False,
     ) -> str:
+        # FIXME: add exception classes
+        if not self._session_id:
+            raise RuntimeError()
         flags = 0
         if ephemeral:
             flags |= 1
@@ -73,5 +76,7 @@ class FaaSKeeperClient:
             flags |= 2
 
         return self._work_queue.add_request(
-            CreateNode(session_id=self._session_id, path=path, value=value, acl=0, flags=flags)
+            CreateNode(
+                session_id=self._session_id, path=path, value=value, acl=0, flags=flags
+            )
         )
