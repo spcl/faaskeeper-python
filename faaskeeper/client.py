@@ -1,7 +1,7 @@
 import uuid
 
 from faaskeeper.queue import WorkQueue, EventQueue, ResponseListener, WorkerThread
-from faaskeeper.operations import CreateNode
+from faaskeeper.operations import CreateNode, GetData
 from faaskeeper.providers.aws import AWSClient
 from faaskeeper.threading import Future
 
@@ -16,7 +16,9 @@ class FaaSKeeperClient:
         self._client_id = str(uuid.uuid4())[0:8]
         self._service_name = service_name
         self._session_id = None
-        self._provider_client = FaaSKeeperClient._providers[provider](verbose)
+        self._provider_client = FaaSKeeperClient._providers[provider](
+            service_name, verbose
+        )
         self._port = port
 
     def start(self):
@@ -81,6 +83,28 @@ class FaaSKeeperClient:
             CreateNode(
                 session_id=self._session_id, path=path, value=value, acl=0, flags=flags
             ),
-            future
+            future,
+        )
+        return future
+
+    # FIXME: watch
+    # FIXME: stat
+    def get_data(
+        self,
+        path: str,
+    ) -> bytes:
+        return self.get_data_async(path).get()
+
+    def get_data_async(
+        self,
+        path: str,
+    ) -> Future:
+
+        future = Future()
+        self._work_queue.add_request(
+            GetData(
+                session_id=self._session_id, path=path
+            ),
+            future,
         )
         return future

@@ -8,6 +8,15 @@ class Operation(ABC):
         self._session_id = session_id
         self._path = path
 
+    @property
+    def path(self) -> str:
+        return self._path
+
+
+class RequestOperation(Operation):
+    def __init__(self, session_id: str, path: str):
+        super().__init__(session_id, path)
+
     @abstractmethod
     def generate_request(self) -> dict:
         pass
@@ -16,12 +25,19 @@ class Operation(ABC):
     def process_result(self, result: dict, fut: Future):
         pass
 
-    @abstractmethod
-    def returns_directly(self) -> bool:
-        pass
+    def is_cloud_request(self) -> bool:
+        return True
 
 
-class CreateNode(Operation):
+class DirectOperation(Operation):
+    def __init__(self, session_id: str, path: str):
+        super().__init__(session_id, path)
+
+    def is_cloud_request(self) -> bool:
+        return False
+
+
+class CreateNode(RequestOperation):
     def __init__(self, session_id: str, path: str, value: bytes, acl: int, flags: int):
         super().__init__(session_id, path)
         self._value = value
@@ -46,3 +62,8 @@ class CreateNode(Operation):
 
     def returns_directly(self) -> bool:
         return False
+
+
+class GetData(DirectOperation):
+    def __init__(self, session_id: str, path: str):
+        super().__init__(session_id, path)

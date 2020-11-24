@@ -133,7 +133,6 @@ class WorkerThread(Thread):
 
         def callback(response):
             nonlocal event, result
-            print("Wake up!", response)
             event.set()
             event.clear()
             result = response
@@ -143,20 +142,29 @@ class WorkerThread(Thread):
             # FIXME: add addresses of handler thread
             if not self._queue.empty():
                 req_id, request, future = self._queue.pop()
-                self._event_queue.add_callback(req_id, callback)
-                self._provider_client.send_request(
-                    table=f"{self._service_name}-write-queue",
-                    service_name=self._service_name,
-                    request_id=f"{self._session_id}-{req_id}",
-                    data={
-                        **request.generate_request(),
-                        "sourceIP": self._response_handler.address,
-                        "sourcePort": self._response_handler.port,
-                    },
-                )
-                event.wait()
-                request.process_result(result, future)
-                print("Woken up!")
-                print(result)
+
+                """
+                    Send the request to execution to the underlying cloud service,
+                    register yourself with an event queue and wait until response arrives.
+                """
+                if request.is_cloud_request():
+                    self._event_queue.add_callback(req_id, callback)
+                    self._provider_client.send_request(
+                        request_id=f"{self._session_id}-{req_id}",
+                        data={
+                            **request.generate_request(),
+                            "sourceIP": self._response_handler.address,
+                            "sourcePort": self._response_handler.port,
+                        },
+                    )
+                    event.wait()
+                    request.process_result(result, future)
+                else:
+                    try:
+                        res = self._provider_client.execute_request(request)
+                        future.set_result(res)
+                    except Exception as e:
+                        future.set_exception(e)
+
             else:
                 self._queue._wait_event.wait()

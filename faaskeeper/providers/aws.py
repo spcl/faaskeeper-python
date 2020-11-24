@@ -7,7 +7,8 @@ from faaskeeper.providers.provider import ProviderClient
 
 
 class AWSClient(ProviderClient):
-    def __init__(self, verbose: bool):
+    def __init__(self, service_name: str, verbose: bool):
+        super().__init__(service_name)
         self._dynamodb = boto3.client("dynamodb")
 
     @staticmethod
@@ -34,19 +35,30 @@ class AWSClient(ProviderClient):
         }
 
     def send_request(
-        self,
-        table: str,
-        service_name: str,
-        request_id: str,
-        data: Dict[str, Union[str, bytes, int]],
+        self, request_id: str, data: Dict[str, Union[str, bytes, int]],
     ):
         try:
             ret = self._dynamodb.put_item(
-                TableName=table,
+                TableName=f"{self._service_name}-write-queue",
                 Item=AWSClient._convert_items(
-                    {**data, "key": service_name, "timestamp": request_id}
+                    {**data, "key": self._service_name, "timestamp": request_id}
                 ),
             )
+        except Exception as e:
+            logging.error("Failure!")
+            logging.error(e)
+
+    def get_data(self, path: str):
+
+        try:
+            print(AWSClient._convert_items({"key": path}))
+            ret = self._dynamodb.get_item(
+                TableName=f"{self._service_name}-data",
+                Key=AWSClient._convert_items({"path": path}),
+                ConsistentRead=True,
+                ReturnConsumedCapacity="TOTAL",
+            )
+            print(ret)
         except Exception as e:
             logging.error("Failure!")
             logging.error(e)
