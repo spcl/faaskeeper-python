@@ -8,7 +8,7 @@ from typing import Callable, Deque, Dict, Tuple
 
 from faaskeeper.operations import Operation
 from faaskeeper.threading import Future
-from faaskeeper.exceptions import ProviderException
+from faaskeeper.exceptions import ProviderException, TimeOutException
 from faaskeeper.providers.provider import ProviderClient
 
 
@@ -94,7 +94,6 @@ class ResponseListener(Thread):
         while True:
 
             conn, addr = self._socket.accept()
-            f.flush()
             with conn:
                 logging.info(f"Connected with {addr}")
                 data = conn.recv(1024).decode()
@@ -154,7 +153,9 @@ class WorkerThread(Thread):
                                 "sourcePort": self._response_handler.port,
                             },
                         )
-                        event.wait()
+                        if not event.wait(5.0):
+                            future.set_exception(TimeOutException(5.0))
+                            continue
                         request.process_result(result, future)
                     except ProviderException as e:
                         future.set_exception(e)

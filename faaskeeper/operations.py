@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 
 from faaskeeper.threading import Future
-from faaskeeper.exceptions import NodeExistsException
+from faaskeeper.exceptions import FaaSKeeperException, NodeExistsException
 
 
 class Operation(ABC):
@@ -53,13 +53,14 @@ class CreateNode(RequestOperation):
             "data": self._value,
         }
 
-    # FIXME: result type
     def process_result(self, result: dict, fut: Future):
         if result["status"] == "success":
             fut.set_result(result["path"])
         else:
             if result["reason"] == "node_exists":
                 fut.set_exception(NodeExistsException(result["path"]))
+            else:
+                fut.set_exception(FaaSKeeperException("unknown error"))
 
     def returns_directly(self) -> bool:
         return False
