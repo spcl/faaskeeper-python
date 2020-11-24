@@ -1,4 +1,5 @@
 import uuid
+from typing import Optional
 
 from faaskeeper.queue import WorkQueue, EventQueue, ResponseListener, WorkerThread
 from faaskeeper.operations import CreateNode, GetData
@@ -20,6 +21,10 @@ class FaaSKeeperClient:
             service_name, verbose
         )
         self._port = port
+
+    @property
+    def session_id(self) -> Optional[str]:
+        return self._session_id
 
     def start(self):
         """
