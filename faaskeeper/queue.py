@@ -91,19 +91,14 @@ class ResponseListener(Thread):
 
         self._socket.listen(5)
 
-        with open("log", "w") as f:
-            while True:
+        while True:
 
-                conn, addr = self._socket.accept()
-                f.flush()
-                with conn:
-                    logging.info(f"Connected with {addr}")
-                    data = conn.recv(1024).decode()
-                    self._event_queue.add_event(json.loads(data))
-                    # print(data, file=f)
-                    # f.flush()
-                    break
-
+            conn, addr = self._socket.accept()
+            f.flush()
+            with conn:
+                logging.info(f"Connected with {addr}")
+                data = conn.recv(1024).decode()
+                self._event_queue.add_event(json.loads(data))
 
 # FIXME: add sesssion state - id, name, config
 class WorkerThread(Thread):
