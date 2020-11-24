@@ -4,6 +4,7 @@ from typing import Dict, Union
 import boto3
 
 from faaskeeper.providers.provider import ProviderClient
+from faaskeeper.exceptions import AWSException
 
 
 class AWSClient(ProviderClient):
@@ -45,20 +46,17 @@ class AWSClient(ProviderClient):
                 ),
             )
         except Exception as e:
-            logging.error("Failure!")
-            logging.error(e)
+            raise AWSException(f"Failure on AWS client: {str(e)}")
 
     def get_data(self, path: str):
 
         try:
-            print(AWSClient._convert_items({"key": path}))
             ret = self._dynamodb.get_item(
                 TableName=f"{self._service_name}-data",
                 Key=AWSClient._convert_items({"path": path}),
                 ConsistentRead=True,
                 ReturnConsumedCapacity="TOTAL",
             )
-            print(ret)
         except Exception as e:
-            logging.error("Failure!")
-            logging.error(e)
+            raise AWSException(f"Failure on AWS client: {str(e)}")
+

@@ -8,6 +8,7 @@ from typing import Callable, Deque, Dict, Tuple
 
 from faaskeeper.operations import Operation
 from faaskeeper.threading import Future
+from faaskeeper.exceptions import ProviderException
 from faaskeeper.providers.provider import ProviderClient
 
 
@@ -148,17 +149,20 @@ class WorkerThread(Thread):
                     register yourself with an event queue and wait until response arrives.
                 """
                 if request.is_cloud_request():
-                    self._event_queue.add_callback(req_id, callback)
-                    self._provider_client.send_request(
-                        request_id=f"{self._session_id}-{req_id}",
-                        data={
-                            **request.generate_request(),
-                            "sourceIP": self._response_handler.address,
-                            "sourcePort": self._response_handler.port,
-                        },
-                    )
-                    event.wait()
-                    request.process_result(result, future)
+                    try:
+                        self._event_queue.add_callback(req_id, callback)
+                        self._provider_client.send_request(
+                            request_id=f"{self._session_id}-{req_id}",
+                            data={
+                                **request.generate_request(),
+                                "sourceIP": self._response_handler.address,
+                                "sourcePort": self._response_handler.port,
+                            },
+                        )
+                        event.wait()
+                        request.process_result(result, future)
+                    except ProviderException as e:
+                        future.set_exception(e)
                 else:
                     try:
                         res = self._provider_client.execute_request(request)
@@ -168,3 +172,4 @@ class WorkerThread(Thread):
 
             else:
                 self._queue._wait_event.wait()
+
