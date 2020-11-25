@@ -100,6 +100,21 @@ class DeregisterSession(RequestOperation):
     def __init__(self, session_id: str):
         super().__init__(session_id, '')
 
+    def generate_request(self) -> dict:
+        return {
+            "op": self.name,
+            "user": self._session_id,
+        }
+
+    def process_result(self, result: dict, fut: Future):
+        if result["status"] == "success":
+            fut.set_result(result["path"])
+        else:
+            if result["reason"] == "node_exists":
+                fut.set_exception(NodeExistsException(result["path"]))
+            else:
+                fut.set_exception(FaaSKeeperException("unknown error"))
+
     @property
     def name(self) -> str:
         return "deregister_session"

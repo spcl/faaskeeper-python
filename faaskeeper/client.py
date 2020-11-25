@@ -5,9 +5,10 @@ from datetime import datetime
 from typing import Optional, List
 
 from faaskeeper.queue import WorkQueue, EventQueue, ResponseListener, WorkerThread
-from faaskeeper.operations import CreateNode, GetData, RegisterSession
+from faaskeeper.operations import CreateNode, GetData, RegisterSession, DeregisterSession
 from faaskeeper.providers.aws import AWSClient
 from faaskeeper.threading import Future
+from faaskeeper.exceptions import TimeoutException
 
 
 class FaaSKeeperClient:
@@ -20,6 +21,7 @@ class FaaSKeeperClient:
         self._client_id = str(uuid.uuid4())[0:8]
         self._service_name = service_name
         self._session_id = None
+        self._closing_down = False
         self._provider_client = FaaSKeeperClient._providers[provider](
             service_name, verbose
         )
@@ -39,11 +41,12 @@ class FaaSKeeperClient:
     def session_id(self) -> Optional[str]:
         return self._session_id
 
+    # FIXME: exception for incorrect connection
     def start(self):
         """
             1) Start thread handling replies from FK.
             2) Start heartbeat thread
-            3) Add yourself to the FK service.
+            3) Add ourself to the FK service.
         """
         self._session_id = str(uuid.uuid4())[0:8]
         self._work_queue = WorkQueue()
@@ -69,16 +72,46 @@ class FaaSKeeperClient:
         self._log.info(f"[{str(datetime.now())}] (FaaSKeeperClient) Registered session: {self._session_id}")
 
     def stop(self):
+        if self._closing_down:
+            return "in progress"
+
         """
             Before shutdown:
-            1) Notify queue that we're closing
-            2) Wait for pending requests.
-            3) Notify system about closure.
+            1) Notify system about closure.
+            2) Notify queue that we're closing
+            3) Wait for pending requests.
+            4) Verify that we're correctly closed
             4) Stop heartbeat thread
         """
+        self._closing_down = True
+        future = Future()
+        print(self._work_queue._closing)
+        self._work_queue.add_request(
+            DeregisterSession(
+                session_id=self._session_id,
+            ),
+            future,
+        )
+        self._work_queue.close()
+        self._work_queue.wait_close(3)
+        print(future.get())
         self._log.info(f"[{str(datetime.now())}] (FaaSKeeperClient) Deregistered session: {self._session_id}")
-        # notify service about closure
+
+        self._event_queue.close()
+        self._event_queue.wait_close(3)
+        #self._response_handler.join(3)
+        #self._work_thread.join(3)
+        if self._response_handler.is_alive() or self._work_thread.is_alive():
+            raise TimeoutException()
+
         self._session_id = None
+        self._work_queue = None
+        self._event_queue = None
+        self._response_handler = None
+        self._work_thread = None
+
+        return "done"
+
 
     def logs(self) -> List[str]:
         self._log_handler.flush()

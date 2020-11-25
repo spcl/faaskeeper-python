@@ -8,13 +8,22 @@ class ProviderException(FaaSKeeperException):
     def __init__(self, msg: str):
         super().__init__(msg)
 
+
+class SessionClosingException(FaaSKeeperException):
+    def __init__(self):
+        super().__init__("Illegal operation while session is closing")
+
+class SessionExpiredException(FaaSKeeperException):
+    def __init__(self):
+        super().__init__("Illegal operation on expired session")
+
+class TimeoutException(FaaSKeeperException):
+    def __init__(self, time: int):
+        super().__init__(f"Operation timed out after {time} [s]!")
+
 class AWSException(ProviderException):
     def __init__(self, msg: str):
         super().__init__(msg)
-
-class TimeOutException(FaaSKeeperException):
-    def __init__(self, time: int):
-        super().__init__(f"Operation timed out after {time} [s]!")
 
 class ZooKeeperException(FaaSKeeperException):
     def __init__(self, msg: str):

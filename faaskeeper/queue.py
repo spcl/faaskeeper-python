@@ -1,6 +1,7 @@
 import json
 import logging
 import socket
+import time
 import urllib
 from datetime import datetime
 from threading import Thread, Event
@@ -9,9 +10,14 @@ from typing import Callable, Deque, Dict, Tuple
 
 from faaskeeper.operations import Operation
 from faaskeeper.threading import Future
-from faaskeeper.exceptions import ProviderException, TimeOutException
+from faaskeeper.exceptions import ProviderException, TimeoutException, SessionClosingException
 from faaskeeper.providers.provider import ProviderClient
 
+
+def wait_until(condition, timeout: int, interval: float = 0.1, *args):
+    start = time.time()
+    while not condition(*args) and time.time() - start < timeout:
+        time.sleep(interval)
 
 """
     Queue is served by a single thread processing requests.
@@ -23,8 +29,11 @@ class WorkQueue:
         self._request_count = 0
         self._queue: Deque[Tuple[int, Operation, Future]] = deque()
         self._wait_event = Event()
+        self._closing = False
 
     def add_request(self, op: Operation, fut: Future):
+        if self._closing:
+            raise SessionClosingException()
         self._queue.append((self._request_count, op, fut))
         self._request_count += 1
         # only if queue was empty
@@ -38,13 +47,21 @@ class WorkQueue:
     def pop(self) -> Tuple[int, Operation, Future]:
         return self._queue.popleft()
 
+    def close(self):
+        self._closing = True
+
+    def wait_close(self, timeout: int = -1):
+        if timeout > 0:
+            wait_until(self.empty, timeout)
+            if not self.empty():
+                raise TimeoutException(timeout)
+
 
 """
     Handle watch notification events and replies from service.
 
     In the current implementation, callbacks block the current thread.
 
-    FIXME: add handler thread
 """
 
 
@@ -52,17 +69,33 @@ class EventQueue:
     def __init__(self):
         self._queue: Deque[Tuple[int, dict]] = deque()
         self._outstanding_waits: Dict[int, Callable[[dict], None]] = {}
+        self._closing = False
 
     def add_callback(self, event_id: int, callback: Callable[[dict], None]):
         self._outstanding_waits[event_id] = callback
 
     def add_event(self, event: dict):
+        if self._closing:
+            raise SessionClosingException()
+
         event_id = int(event["event"].split("-")[1])
         self._queue.append((event_id, event))
         callback = self._outstanding_waits.get(event_id)
         if callback:
             del self._outstanding_waits[event_id]
             callback(event)
+
+    def empty(self) -> bool:
+        return len(self._queue) == 0
+
+    def close(self):
+        self._closing = True
+
+    def wait_close(self, timeout: int = -1):
+        if timeout > 0:
+            wait_until(self.empty, timeout)
+            if not self.empty():
+                raise TimeoutException(timeout)
 
 
 class ResponseListener(Thread):
@@ -159,7 +192,7 @@ class WorkerThread(Thread):
                             },
                         )
                         if not event.wait(5.0):
-                            future.set_exception(TimeOutException(5.0))
+                            future.set_exception(TimeoutException(5.0))
                             continue
                         request.process_result(result, future)
                     except ProviderException as e:
