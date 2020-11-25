@@ -32,3 +32,6 @@ class NodeExistsException(ZooKeeperException):
     def __init__(self, path: str):
         super().__init__(f"Node {path} exists!")
 
+class BadVersionError(ZooKeeperException):
+    def __init__(self, version: int):
+        super().__init__(f"Update failed: node does not exist or version {version} does not match!")

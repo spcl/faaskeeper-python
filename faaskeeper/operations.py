@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 
 from faaskeeper.threading import Future
-from faaskeeper.exceptions import FaaSKeeperException, NodeExistsException
+from faaskeeper.exceptions import FaaSKeeperException, NodeExistsException, BadVersionError
 
 
 class Operation(ABC):
@@ -97,8 +97,8 @@ class SetData(RequestOperation):
         if result["status"] == "success":
             fut.set_result(result["path"])
         else:
-            if result["reason"] == "node_does_not_exists":
-                fut.set_exception(NodeExistsException(result["path"]))
+            if result["reason"] == "update_failure":
+                fut.set_exception(BadVersionError(self._version))
             else:
                 fut.set_exception(FaaSKeeperException("unknown error"))
 
