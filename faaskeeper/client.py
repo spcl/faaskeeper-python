@@ -1,5 +1,7 @@
+import logging
+import io
 import uuid
-from typing import Optional
+from typing import Optional, List
 
 from faaskeeper.queue import WorkQueue, EventQueue, ResponseListener, WorkerThread
 from faaskeeper.operations import CreateNode, GetData
@@ -21,6 +23,16 @@ class FaaSKeeperClient:
             service_name, verbose
         )
         self._port = port
+
+        self._log_stream = io.StringIO()
+        self._log = logging.getLogger('faaskeeper')
+        self._log.propagate = False
+        for handler in self._log.handlers:
+            self._log.removeHandler(handler)
+        self._log.setLevel(logging.INFO)
+        self._log_handler = logging.StreamHandler(self._log_stream)
+        self._log_handler.setLevel(logging.INFO)
+        self._log.addHandler(self._log_handler)
 
     @property
     def session_id(self) -> Optional[str]:
@@ -54,6 +66,10 @@ class FaaSKeeperClient:
         """
         # notify service about closure
         self._session_id = None
+
+    def logs(self) -> List[str]:
+        self._log_handler.flush()
+        return self._log_stream.getvalue()
 
     # TODO: ACL
     def create(

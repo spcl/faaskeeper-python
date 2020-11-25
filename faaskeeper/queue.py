@@ -2,6 +2,7 @@ import json
 import logging
 import socket
 import urllib
+from datetime import datetime
 from threading import Thread, Event
 from collections import deque
 from typing import Callable, Deque, Dict, Tuple
@@ -84,6 +85,7 @@ class ResponseListener(Thread):
         req = urllib.request.urlopen("https://checkip.amazonaws.com")
         self._public_addr = req.read().decode().strip()
         self._port = self._socket.getsockname()[1]
+        self._log = logging.getLogger('faaskeeper')
 
         self.start()
 
@@ -96,8 +98,9 @@ class ResponseListener(Thread):
             conn, addr = self._socket.accept()
             with conn:
                 logging.info(f"Connected with {addr}")
-                data = conn.recv(1024).decode()
-                self._event_queue.add_event(json.loads(data))
+                data = json.loads(conn.recv(1024).decode())
+                self._log.info(f"[{str(datetime.now())}] (ResponseListener) Received message: {data}")
+                self._event_queue.add_event(data)
 
 # FIXME: add sesssion state - id, name, config
 class WorkerThread(Thread):
@@ -117,6 +120,7 @@ class WorkerThread(Thread):
         self._event_queue = event_queue
         self._provider_client = provider_client
         self._response_handler = response_handler
+        self._log = logging.getLogger('faaskeeper')
 
         self.start()
 
@@ -142,6 +146,7 @@ class WorkerThread(Thread):
                     Send the request to execution to the underlying cloud service,
                     register yourself with an event queue and wait until response arrives.
                 """
+                self._log.info(f"[{str(datetime.now())}] (WorkerThread) Begin executing operation: {request.name}")
                 if request.is_cloud_request():
                     try:
                         self._event_queue.add_callback(req_id, callback)
@@ -165,6 +170,7 @@ class WorkerThread(Thread):
                         future.set_result(res)
                     except Exception as e:
                         future.set_exception(e)
+                self._log.info(f"[{str(datetime.now())}] (WorkerThread) Finish executing operation: {request.name}")
 
             else:
                 self._queue._wait_event.wait()

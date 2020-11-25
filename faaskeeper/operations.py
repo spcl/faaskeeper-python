@@ -13,6 +13,11 @@ class Operation(ABC):
     def path(self) -> str:
         return self._path
 
+    @property
+    @abstractmethod
+    def name(self) -> str:
+        pass
+
 
 class RequestOperation(Operation):
     def __init__(self, session_id: str, path: str):
@@ -65,7 +70,16 @@ class CreateNode(RequestOperation):
     def returns_directly(self) -> bool:
         return False
 
+    @property
+    def name(self) -> str:
+        return "create"
+
 
 class GetData(DirectOperation):
     def __init__(self, session_id: str, path: str):
         super().__init__(session_id, path)
+
+    @property
+    def name(self) -> str:
+        return "get_data"
+
