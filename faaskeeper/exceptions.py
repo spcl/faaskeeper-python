@@ -8,14 +8,13 @@ class ProviderException(FaaSKeeperException):
     def __init__(self, msg: str):
         super().__init__(msg)
 
-
 class SessionClosingException(FaaSKeeperException):
     def __init__(self):
         super().__init__("Illegal operation while session is closing")
 
 class SessionExpiredException(FaaSKeeperException):
     def __init__(self):
-        super().__init__("Illegal operation on expired session")
+        super().__init__("Illegal operation on an expired session")
 
 class TimeoutException(FaaSKeeperException):
     def __init__(self, time: int):

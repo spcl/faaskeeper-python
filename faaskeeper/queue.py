@@ -67,7 +67,7 @@ class WorkQueue:
 
 class EventQueue:
     def __init__(self):
-        self._queue: Deque[Tuple[int, dict]] = deque()
+        #self._queue: Deque[Tuple[int, dict]] = deque()
         self._outstanding_waits: Dict[int, Callable[[dict], None]] = {}
         self._closing = False
 
@@ -79,23 +79,24 @@ class EventQueue:
             raise SessionClosingException()
 
         event_id = int(event["event"].split("-")[1])
-        self._queue.append((event_id, event))
+        #self._queue.append((event_id, event))
         callback = self._outstanding_waits.get(event_id)
         if callback:
             del self._outstanding_waits[event_id]
             callback(event)
 
-    def empty(self) -> bool:
-        return len(self._queue) == 0
+    #def empty(self) -> bool:
+    #    return len(self._queue) == 0
 
     def close(self):
         self._closing = True
 
-    def wait_close(self, timeout: int = -1):
-        if timeout > 0:
-            wait_until(self.empty, timeout)
-            if not self.empty():
-                raise TimeoutException(timeout)
+    #def wait_close(self, timeout: int = -1):
+    #    return
+    #    if timeout > 0:
+    #        wait_until(self.empty, timeout)
+    #        if not self.empty():
+    #            raise TimeoutException(timeout)
 
 
 class ResponseListener(Thread):

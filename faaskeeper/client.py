@@ -72,8 +72,10 @@ class FaaSKeeperClient:
         self._log.info(f"[{str(datetime.now())}] (FaaSKeeperClient) Registered session: {self._session_id}")
 
     def stop(self):
+        if self._session_id == None:
+            return "closed"
         if self._closing_down:
-            return "in progress"
+            return "closing in progress"
 
         """
             Before shutdown:
@@ -85,7 +87,6 @@ class FaaSKeeperClient:
         """
         self._closing_down = True
         future = Future()
-        print(self._work_queue._closing)
         self._work_queue.add_request(
             DeregisterSession(
                 session_id=self._session_id,
@@ -94,15 +95,15 @@ class FaaSKeeperClient:
         )
         self._work_queue.close()
         self._work_queue.wait_close(3)
-        print(future.get())
+        future.get()
         self._log.info(f"[{str(datetime.now())}] (FaaSKeeperClient) Deregistered session: {self._session_id}")
 
         self._event_queue.close()
-        self._event_queue.wait_close(3)
+        # FIXME: close threads
         #self._response_handler.join(3)
         #self._work_thread.join(3)
-        if self._response_handler.is_alive() or self._work_thread.is_alive():
-            raise TimeoutException()
+        #if self._response_handler.is_alive() or self._work_thread.is_alive():
+        #    raise TimeoutException()
 
         self._session_id = None
         self._work_queue = None
@@ -110,7 +111,7 @@ class FaaSKeeperClient:
         self._response_handler = None
         self._work_thread = None
 
-        return "done"
+        return "closed"
 
 
     def logs(self) -> List[str]:
