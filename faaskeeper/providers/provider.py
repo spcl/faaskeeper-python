@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from faaskeeper.operations import DirectOperation, GetData
+from faaskeeper.operations import DirectOperation, GetData, RegisterSession
 
 
 class ProviderClient(ABC):
@@ -11,8 +11,14 @@ class ProviderClient(ABC):
     def get_data(self, path: str):
         pass
 
+    @abstractmethod
+    def register_session(self, session_id: str):
+        pass
+
     def execute_request(self, op: DirectOperation):
         if isinstance(op, GetData):
             return self.get_data(op.path)
+        elif isinstance(op, RegisterSession):
+            return self.register_session(op.session_id)
         else:
             raise NotImplementedError()

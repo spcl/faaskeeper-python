@@ -1,10 +1,11 @@
 import logging
 import io
 import uuid
+from datetime import datetime
 from typing import Optional, List
 
 from faaskeeper.queue import WorkQueue, EventQueue, ResponseListener, WorkerThread
-from faaskeeper.operations import CreateNode, GetData
+from faaskeeper.operations import CreateNode, GetData, RegisterSession
 from faaskeeper.providers.aws import AWSClient
 from faaskeeper.threading import Future
 
@@ -56,6 +57,15 @@ class FaaSKeeperClient:
             self._response_handler,
             self._event_queue,
         )
+        future = Future()
+        self._work_queue.add_request(
+            RegisterSession(
+                session_id=self._session_id
+            ),
+            future,
+        )
+        future.get()
+        self._log.info(f"[{str(datetime.now())}] (FaaSKeeperClient) Registered session: {self._session_id}")
 
     def stop(self):
         """

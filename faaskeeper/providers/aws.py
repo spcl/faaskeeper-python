@@ -20,10 +20,12 @@ class AWSClient(ProviderClient):
             return "N"
         elif isinstance(val, bytes):
             return "B"
+        elif isinstance(val, list):
+            return "L"
 
     @staticmethod
     def _dynamodb_val(val):
-        if isinstance(val, bytes):
+        if isinstance(val, bytes) or isinstance(val, list):
             return val
         else:
             return str(val)
@@ -55,6 +57,21 @@ class AWSClient(ProviderClient):
                 TableName=f"{self._service_name}-data",
                 Key=AWSClient._convert_items({"path": path}),
                 ConsistentRead=True,
+                ReturnConsumedCapacity="TOTAL",
+            )
+        except Exception as e:
+            raise AWSException(f"Failure on AWS client: {str(e)}")
+
+    def register_session(self, session_id: str):
+
+        # FIXME: handle potential conflicts?
+        try:
+            ret = self._dynamodb.put_item(
+                TableName=f"{self._service_name}-state",
+                Item=AWSClient._convert_items({
+                    "type": session_id,
+                    "ephemerals": []
+                }),
                 ReturnConsumedCapacity="TOTAL",
             )
         except Exception as e:

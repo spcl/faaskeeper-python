@@ -10,6 +10,10 @@ class Operation(ABC):
         self._path = path
 
     @property
+    def session_id(self) -> str:
+        return self._session_id
+
+    @property
     def path(self) -> str:
         return self._path
 
@@ -82,4 +86,12 @@ class GetData(DirectOperation):
     @property
     def name(self) -> str:
         return "get_data"
+
+class RegisterSession(DirectOperation):
+    def __init__(self, session_id: str):
+        super().__init__(session_id, '')
+
+    @property
+    def name(self) -> str:
+        return "register_session"
 
