@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Optional, List
 
 from faaskeeper.queue import WorkQueue, EventQueue, ResponseListener, WorkerThread
-from faaskeeper.operations import CreateNode, GetData, RegisterSession, DeregisterSession
+from faaskeeper.operations import CreateNode, GetData, SetData, RegisterSession, DeregisterSession
 from faaskeeper.providers.aws import AWSClient
 from faaskeeper.threading import Future
 from faaskeeper.exceptions import TimeoutException
@@ -172,6 +172,33 @@ class FaaSKeeperClient:
         self._work_queue.add_request(
             GetData(
                 session_id=self._session_id, path=path
+            ),
+            future,
+        )
+        return future
+
+    def set_data(
+        self,
+        path: str,
+        value: bytes = b"",
+        version: int = -1
+    ) -> str:
+        return self.set_data_async(path, value, version).get()
+
+    def set_data_async(
+        self,
+        path: str,
+        value: bytes = b"",
+        version: int = -1
+    ) -> Future:
+        # FIXME: add exception classes
+        if not self._session_id:
+            raise RuntimeError()
+
+        future = Future()
+        self._work_queue.add_request(
+            SetData(
+                session_id=self._session_id, path=path, value=value, version=version
             ),
             future,
         )

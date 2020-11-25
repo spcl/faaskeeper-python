@@ -1,3 +1,4 @@
+import base64
 import logging
 from typing import Dict, Union
 
@@ -58,6 +59,10 @@ class AWSClient(ProviderClient):
                 Key=AWSClient._convert_items({"path": path}),
                 ConsistentRead=True,
                 ReturnConsumedCapacity="TOTAL",
+            )
+            return (
+                base64.b64decode(ret["Item"]["data"]["B"]),
+                ret["Item"]["version"]["N"]
             )
         except Exception as e:
             raise AWSException(f"Failure on AWS client: {str(e)}")

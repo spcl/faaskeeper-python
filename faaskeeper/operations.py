@@ -78,6 +78,36 @@ class CreateNode(RequestOperation):
     def name(self) -> str:
         return "create"
 
+class SetData(RequestOperation):
+    def __init__(self, session_id: str, path: str, value: bytes, version: int):
+        super().__init__(session_id, path)
+        self._value = value
+        self._version = version
+
+    def generate_request(self) -> dict:
+        return {
+            "op": self.name,
+            "path": self._path,
+            "user": self._session_id,
+            "data": self._value,
+            "version": self._version
+        }
+
+    def process_result(self, result: dict, fut: Future):
+        if result["status"] == "success":
+            fut.set_result(result["path"])
+        else:
+            if result["reason"] == "node_does_not_exists":
+                fut.set_exception(NodeExistsException(result["path"]))
+            else:
+                fut.set_exception(FaaSKeeperException("unknown error"))
+
+    def returns_directly(self) -> bool:
+        return False
+
+    @property
+    def name(self) -> str:
+        return "set_data"
 
 class GetData(DirectOperation):
     def __init__(self, session_id: str, path: str):
