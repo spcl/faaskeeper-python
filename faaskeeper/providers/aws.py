@@ -61,7 +61,7 @@ class AWSClient(ProviderClient):
                 ReturnConsumedCapacity="TOTAL",
             )
             return (
-                base64.b64decode(ret["Item"]["data"]["B"]),
+                ret["Item"]["data"]["B"],
                 ret["Item"]["version"]["N"]
             )
         except Exception as e:
