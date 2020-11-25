@@ -88,10 +88,19 @@ class GetData(DirectOperation):
         return "get_data"
 
 class RegisterSession(DirectOperation):
+    def __init__(self, session_id: str, source_addr: str):
+        super().__init__(session_id, '')
+        self.source_addr = source_addr
+
+    @property
+    def name(self) -> str:
+        return "register_session"
+
+class DeregisterSession(RequestOperation):
     def __init__(self, session_id: str):
         super().__init__(session_id, '')
 
     @property
     def name(self) -> str:
-        return "register_session"
+        return "deregister_session"
 

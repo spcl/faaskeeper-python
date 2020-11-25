@@ -12,13 +12,13 @@ class ProviderClient(ABC):
         pass
 
     @abstractmethod
-    def register_session(self, session_id: str):
+    def register_session(self, session_id: str, sourceAddr: str):
         pass
 
     def execute_request(self, op: DirectOperation):
         if isinstance(op, GetData):
             return self.get_data(op.path)
         elif isinstance(op, RegisterSession):
-            return self.register_session(op.session_id)
+            return self.register_session(op.session_id, op.source_addr)
         else:
             raise NotImplementedError()

@@ -62,7 +62,7 @@ class AWSClient(ProviderClient):
         except Exception as e:
             raise AWSException(f"Failure on AWS client: {str(e)}")
 
-    def register_session(self, session_id: str):
+    def register_session(self, session_id: str, source_addr: str):
 
         # FIXME: handle potential conflicts?
         try:
@@ -70,6 +70,7 @@ class AWSClient(ProviderClient):
                 TableName=f"{self._service_name}-state",
                 Item=AWSClient._convert_items({
                     "type": session_id,
+                    "addr": source_addr,
                     "ephemerals": []
                 }),
                 ReturnConsumedCapacity="TOTAL",

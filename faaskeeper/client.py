@@ -60,7 +60,8 @@ class FaaSKeeperClient:
         future = Future()
         self._work_queue.add_request(
             RegisterSession(
-                session_id=self._session_id
+                session_id=self._session_id,
+                source_addr=f"{self._response_handler.address}:{self._response_handler.port}"
             ),
             future,
         )
@@ -70,10 +71,12 @@ class FaaSKeeperClient:
     def stop(self):
         """
             Before shutdown:
-            1) Wait for pending requests.
-            2) Notify system about closure.
-            3) Stop heartbeat thread
+            1) Notify queue that we're closing
+            2) Wait for pending requests.
+            3) Notify system about closure.
+            4) Stop heartbeat thread
         """
+        self._log.info(f"[{str(datetime.now())}] (FaaSKeeperClient) Deregistered session: {self._session_id}")
         # notify service about closure
         self._session_id = None
 
