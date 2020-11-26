@@ -1,15 +1,19 @@
 import logging
 import io
-import os
 import uuid
 from datetime import datetime
-from typing import Optional, List
 
 from faaskeeper.queue import WorkQueue, EventQueue, ResponseListener, WorkerThread
-from faaskeeper.operations import CreateNode, GetData, SetData, RegisterSession, DeregisterSession
+from faaskeeper.operations import (
+    CreateNode,
+    GetData,
+    SetData,
+    RegisterSession,
+    DeregisterSession,
+)
 from faaskeeper.providers.aws import AWSClient
 from faaskeeper.threading import Future
-from faaskeeper.exceptions import TimeoutException, MalformedInputException
+from faaskeeper.exceptions import MalformedInputException, SessionExpiredException
 
 
 class FaaSKeeperClient:
@@ -29,7 +33,7 @@ class FaaSKeeperClient:
         self._port = port
 
         self._log_stream = io.StringIO()
-        self._log = logging.getLogger('faaskeeper')
+        self._log = logging.getLogger("faaskeeper")
         self._log.propagate = False
         for handler in self._log.handlers:
             self._log.removeHandler(handler)
@@ -39,14 +43,16 @@ class FaaSKeeperClient:
         self._log.addHandler(self._log_handler)
 
     @property
-    def session_id(self) -> Optional[str]:
+    def session_id(self) -> str:
+        if not self._session_id:
+            raise SessionExpiredException()
         return self._session_id
 
     @staticmethod
     def _sanitize_path(path: str):
-        if not path.startswith('/'):
+        if not path.startswith("/"):
             raise MalformedInputException("Path must begin with /")
-        if path.endswith('/'):
+        if path.endswith("/"):
             raise MalformedInputException("Path must not end with /")
 
     # FIXME: exception for incorrect connection
@@ -68,19 +74,19 @@ class FaaSKeeperClient:
             self._response_handler,
             self._event_queue,
         )
+        addr = f"{self._response_handler.address}:{self._response_handler.port}"
         future = Future()
         self._work_queue.add_request(
-            RegisterSession(
-                session_id=self._session_id,
-                source_addr=f"{self._response_handler.address}:{self._response_handler.port}"
-            ),
-            future,
+            RegisterSession(session_id=self._session_id, source_addr=addr,), future,
         )
         future.get()
-        self._log.info(f"[{str(datetime.now())}] (FaaSKeeperClient) Registered session: {self._session_id}")
+        self._log.info(
+            f"[{str(datetime.now())}] (FaaSKeeperClient) Registered "
+            f"session: {self._session_id}"
+        )
 
     def stop(self):
-        if self._session_id == None:
+        if self._session_id is None:
             return "closed"
         if self._closing_down:
             return "closing in progress"
@@ -96,21 +102,21 @@ class FaaSKeeperClient:
         self._closing_down = True
         future = Future()
         self._work_queue.add_request(
-            DeregisterSession(
-                session_id=self._session_id,
-            ),
-            future,
+            DeregisterSession(session_id=self._session_id,), future,
         )
         self._work_queue.close()
         self._work_queue.wait_close(3)
         future.get()
-        self._log.info(f"[{str(datetime.now())}] (FaaSKeeperClient) Deregistered session: {self._session_id}")
+        self._log.info(
+            f"[{str(datetime.now())}] (FaaSKeeperClient) Deregistered "
+            f"session: {self._session_id}"
+        )
 
         self._event_queue.close()
         # FIXME: close threads
-        #self._response_handler.join(3)
-        #self._work_thread.join(3)
-        #if self._response_handler.is_alive() or self._work_thread.is_alive():
+        # self._response_handler.join(3)
+        # self._work_thread.join(3)
+        # if self._response_handler.is_alive() or self._work_thread.is_alive():
         #    raise TimeoutException()
 
         self._session_id = None
@@ -121,8 +127,7 @@ class FaaSKeeperClient:
 
         return "closed"
 
-
-    def logs(self) -> List[str]:
+    def logs(self) -> str:
         self._log_handler.flush()
         return self._log_stream.getvalue()
 
@@ -167,40 +172,23 @@ class FaaSKeeperClient:
 
     # FIXME: watch
     # FIXME: stat
-    def get_data(
-        self,
-        path: str,
-    ) -> bytes:
+    def get_data(self, path: str,) -> bytes:
         return self.get_data_async(path).get()
 
-    def get_data_async(
-        self,
-        path: str,
-    ) -> Future:
+    def get_data_async(self, path: str,) -> Future:
 
         FaaSKeeperClient._sanitize_path(path)
         future = Future()
         self._work_queue.add_request(
-            GetData(
-                session_id=self._session_id, path=path
-            ),
-            future,
+            GetData(session_id=self.session_id, path=path), future,
         )
         return future
 
-    def set_data(
-        self,
-        path: str,
-        value: bytes = b"",
-        version: int = -1
-    ) -> str:
+    def set_data(self, path: str, value: bytes = b"", version: int = -1) -> str:
         return self.set_data_async(path, value, version).get()
 
     def set_data_async(
-        self,
-        path: str,
-        value: bytes = b"",
-        version: int = -1
+        self, path: str, value: bytes = b"", version: int = -1
     ) -> Future:
         # FIXME: add exception classes
         if not self._session_id:

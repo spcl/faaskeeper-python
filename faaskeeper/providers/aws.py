@@ -1,6 +1,4 @@
-import base64
-import logging
-from typing import Dict, Union
+from typing import Dict, Union, Tuple
 
 import boto3
 
@@ -41,6 +39,7 @@ class AWSClient(ProviderClient):
     def send_request(
         self, request_id: str, data: Dict[str, Union[str, bytes, int]],
     ):
+        # FIXME: handle failure
         try:
             ret = self._dynamodb.put_item(
                 TableName=f"{self._service_name}-write-queue",
@@ -51,7 +50,7 @@ class AWSClient(ProviderClient):
         except Exception as e:
             raise AWSException(f"Failure on AWS client: {str(e)}")
 
-    def get_data(self, path: str):
+    def get_data(self, path: str) -> Tuple[bytes, int]:
 
         try:
             ret = self._dynamodb.get_item(
@@ -60,10 +59,7 @@ class AWSClient(ProviderClient):
                 ConsistentRead=True,
                 ReturnConsumedCapacity="TOTAL",
             )
-            return (
-                ret["Item"]["data"]["B"],
-                ret["Item"]["version"]["N"]
-            )
+            return (ret["Item"]["data"]["B"], ret["Item"]["version"]["N"])
         except Exception as e:
             raise AWSException(f"Failure on AWS client: {str(e)}")
 
@@ -73,13 +69,10 @@ class AWSClient(ProviderClient):
         try:
             ret = self._dynamodb.put_item(
                 TableName=f"{self._service_name}-state",
-                Item=AWSClient._convert_items({
-                    "type": session_id,
-                    "addr": source_addr,
-                    "ephemerals": []
-                }),
+                Item=AWSClient._convert_items(
+                    {"type": session_id, "addr": source_addr, "ephemerals": []}
+                ),
                 ReturnConsumedCapacity="TOTAL",
             )
         except Exception as e:
             raise AWSException(f"Failure on AWS client: {str(e)}")
-

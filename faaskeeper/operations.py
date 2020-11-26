@@ -1,7 +1,12 @@
 from abc import ABC, abstractmethod
 
 from faaskeeper.threading import Future
-from faaskeeper.exceptions import FaaSKeeperException, NodeExistsException, BadVersionError
+from faaskeeper.exceptions import (
+    FaaSKeeperException,
+    NodeExistsException,
+    BadVersionError,
+    SessionExpiredException,
+)
 
 
 class Operation(ABC):
@@ -78,6 +83,7 @@ class CreateNode(RequestOperation):
     def name(self) -> str:
         return "create"
 
+
 class SetData(RequestOperation):
     def __init__(self, session_id: str, path: str, value: bytes, version: int):
         super().__init__(session_id, path)
@@ -90,7 +96,7 @@ class SetData(RequestOperation):
             "path": self._path,
             "user": self._session_id,
             "data": self._value,
-            "version": self._version
+            "version": self._version,
         }
 
     def process_result(self, result: dict, fut: Future):
@@ -109,6 +115,7 @@ class SetData(RequestOperation):
     def name(self) -> str:
         return "set_data"
 
+
 class GetData(DirectOperation):
     def __init__(self, session_id: str, path: str):
         super().__init__(session_id, path)
@@ -117,18 +124,20 @@ class GetData(DirectOperation):
     def name(self) -> str:
         return "get_data"
 
+
 class RegisterSession(DirectOperation):
     def __init__(self, session_id: str, source_addr: str):
-        super().__init__(session_id, '')
+        super().__init__(session_id, "")
         self.source_addr = source_addr
 
     @property
     def name(self) -> str:
         return "register_session"
 
+
 class DeregisterSession(RequestOperation):
     def __init__(self, session_id: str):
-        super().__init__(session_id, '')
+        super().__init__(session_id, "")
 
     def generate_request(self) -> dict:
         return {
@@ -148,4 +157,3 @@ class DeregisterSession(RequestOperation):
     @property
     def name(self) -> str:
         return "deregister_session"
-

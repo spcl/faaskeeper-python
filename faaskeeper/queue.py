@@ -2,7 +2,7 @@ import json
 import logging
 import socket
 import time
-import urllib
+import urllib.request
 from datetime import datetime
 from threading import Thread, Event
 from collections import deque
@@ -10,7 +10,11 @@ from typing import Callable, Deque, Dict, Tuple
 
 from faaskeeper.operations import Operation
 from faaskeeper.threading import Future
-from faaskeeper.exceptions import ProviderException, TimeoutException, SessionClosingException
+from faaskeeper.exceptions import (
+    ProviderException,
+    TimeoutException,
+    SessionClosingException,
+)
 from faaskeeper.providers.provider import ProviderClient
 
 
@@ -18,6 +22,7 @@ def wait_until(condition, timeout: int, interval: float = 0.1, *args):
     start = time.time()
     while not condition(*args) and time.time() - start < timeout:
         time.sleep(interval)
+
 
 """
     Queue is served by a single thread processing requests.
@@ -67,7 +72,7 @@ class WorkQueue:
 
 class EventQueue:
     def __init__(self):
-        #self._queue: Deque[Tuple[int, dict]] = deque()
+        # self._queue: Deque[Tuple[int, dict]] = deque()
         self._outstanding_waits: Dict[int, Callable[[dict], None]] = {}
         self._closing = False
 
@@ -79,19 +84,19 @@ class EventQueue:
             raise SessionClosingException()
 
         event_id = int(event["event"].split("-")[1])
-        #self._queue.append((event_id, event))
+        # self._queue.append((event_id, event))
         callback = self._outstanding_waits.get(event_id)
         if callback:
             del self._outstanding_waits[event_id]
             callback(event)
 
-    #def empty(self) -> bool:
+    # def empty(self) -> bool:
     #    return len(self._queue) == 0
 
     def close(self):
         self._closing = True
 
-    #def wait_close(self, timeout: int = -1):
+    # def wait_close(self, timeout: int = -1):
     #    return
     #    if timeout > 0:
     #        wait_until(self.empty, timeout)
@@ -119,7 +124,7 @@ class ResponseListener(Thread):
         req = urllib.request.urlopen("https://checkip.amazonaws.com")
         self._public_addr = req.read().decode().strip()
         self._port = self._socket.getsockname()[1]
-        self._log = logging.getLogger('faaskeeper')
+        self._log = logging.getLogger("faaskeeper")
 
         self.start()
 
@@ -133,8 +138,12 @@ class ResponseListener(Thread):
             with conn:
                 logging.info(f"Connected with {addr}")
                 data = json.loads(conn.recv(1024).decode())
-                self._log.info(f"[{str(datetime.now())}] (ResponseListener) Received message: {data}")
+                self._log.info(
+                    f"[{str(datetime.now())}] (ResponseListener) "
+                    f"Received message: {data}"
+                )
                 self._event_queue.add_event(data)
+
 
 # FIXME: add sesssion state - id, name, config
 class WorkerThread(Thread):
@@ -154,7 +163,7 @@ class WorkerThread(Thread):
         self._event_queue = event_queue
         self._provider_client = provider_client
         self._response_handler = response_handler
-        self._log = logging.getLogger('faaskeeper')
+        self._log = logging.getLogger("faaskeeper")
 
         self.start()
 
@@ -172,15 +181,18 @@ class WorkerThread(Thread):
 
         while True:
 
-            # FIXME: add addresses of handler thread
             if not self._queue.empty():
                 req_id, request, future = self._queue.pop()
 
                 """
-                    Send the request to execution to the underlying cloud service,
-                    register yourself with an event queue and wait until response arrives.
+                    Send the request to execution to the underlying
+                    cloud service, egister yourself with an event queue
+                    and wait until response arrives.
                 """
-                self._log.info(f"[{str(datetime.now())}] (WorkerThread) Begin executing operation: {request.name}")
+                self._log.info(
+                    f"[{str(datetime.now())}] (WorkerThread) Begin "
+                    f"executing operation: {request.name}"
+                )
                 if request.is_cloud_request():
                     try:
                         self._event_queue.add_callback(req_id, callback)
@@ -204,8 +216,10 @@ class WorkerThread(Thread):
                         future.set_result(res)
                     except Exception as e:
                         future.set_exception(e)
-                self._log.info(f"[{str(datetime.now())}] (WorkerThread) Finish executing operation: {request.name}")
+                self._log.info(
+                    f"[{str(datetime.now())}] (WorkerThread) Finish "
+                    f"executing operation: {request.name}"
+                )
 
             else:
                 self._queue._wait_event.wait()
-
