@@ -1,5 +1,6 @@
 import logging
 import io
+import os
 import uuid
 from datetime import datetime
 from typing import Optional, List
@@ -8,7 +9,7 @@ from faaskeeper.queue import WorkQueue, EventQueue, ResponseListener, WorkerThre
 from faaskeeper.operations import CreateNode, GetData, SetData, RegisterSession, DeregisterSession
 from faaskeeper.providers.aws import AWSClient
 from faaskeeper.threading import Future
-from faaskeeper.exceptions import TimeoutException
+from faaskeeper.exceptions import TimeoutException, MalformedInputException
 
 
 class FaaSKeeperClient:
@@ -40,6 +41,13 @@ class FaaSKeeperClient:
     @property
     def session_id(self) -> Optional[str]:
         return self._session_id
+
+    @staticmethod
+    def _sanitize_path(path: str):
+        if not path.startswith('/'):
+            raise MalformedInputException("Path must begin with /")
+        if path.endswith('/'):
+            raise MalformedInputException("Path must not end with /")
 
     # FIXME: exception for incorrect connection
     def start(self):
@@ -140,6 +148,8 @@ class FaaSKeeperClient:
         # FIXME: add exception classes
         if not self._session_id:
             raise RuntimeError()
+
+        FaaSKeeperClient._sanitize_path(path)
         flags = 0
         if ephemeral:
             flags |= 1
@@ -168,6 +178,7 @@ class FaaSKeeperClient:
         path: str,
     ) -> Future:
 
+        FaaSKeeperClient._sanitize_path(path)
         future = Future()
         self._work_queue.add_request(
             GetData(
@@ -195,6 +206,7 @@ class FaaSKeeperClient:
         if not self._session_id:
             raise RuntimeError()
 
+        FaaSKeeperClient._sanitize_path(path)
         future = Future()
         self._work_queue.add_request(
             SetData(

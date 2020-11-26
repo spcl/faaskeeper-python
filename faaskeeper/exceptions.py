@@ -35,3 +35,8 @@ class NodeExistsException(ZooKeeperException):
 class BadVersionError(ZooKeeperException):
     def __init__(self, version: int):
         super().__init__(f"Update failed: node does not exist or version {version} does not match!")
+
+class MalformedInputException(ZooKeeperException):
+    def __init__(self, msg: str):
+        super().__init__(msg)
+
