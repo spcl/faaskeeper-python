@@ -1,6 +1,7 @@
 import logging
 import io
 import uuid
+import sys
 from datetime import datetime
 from typing import Optional
 
@@ -33,13 +34,15 @@ class FaaSKeeperClient:
         )
         self._port = port
 
-        self._log_stream = io.StringIO()
         self._log = logging.getLogger("faaskeeper")
         self._log.propagate = False
         for handler in self._log.handlers:
             self._log.removeHandler(handler)
-        self._log.setLevel(logging.INFO)
-        self._log_handler = logging.StreamHandler(self._log_stream)
+        if verbose:
+            self._log.setLevel(logging.INFO)
+        else:
+            self._log.setLevel(logging.ERROR)
+        self._log_handler = logging.StreamHandler(sys.stdout)
         self._log_handler.setLevel(logging.INFO)
         self._log.addHandler(self._log_handler)
 
@@ -59,7 +62,7 @@ class FaaSKeeperClient:
             raise MalformedInputException("Path must not end with /")
 
     # FIXME: exception for incorrect connection
-    def start(self):
+    def start(self) -> str:
         """
             1) Start thread handling replies from FK.
             2) Start heartbeat thread
@@ -87,6 +90,7 @@ class FaaSKeeperClient:
             f"[{str(datetime.now())}] (FaaSKeeperClient) Registered "
             f"session: {self._session_id}"
         )
+        return self._session_id
 
     def stop(self):
         if self._session_id is None:
@@ -117,8 +121,7 @@ class FaaSKeeperClient:
             )
 
             self._event_queue.close()
-            # FIXME: close threads
-            # self._response_handler.join(3)
+            # self._response_handler.stop()
             # self._work_thread.join(3)
             # if self._response_handler.is_alive() or self._work_thread.is_alive():
             #    raise TimeoutException()
