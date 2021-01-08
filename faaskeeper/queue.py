@@ -117,8 +117,8 @@ class ResponseListener(Thread):
 
         super().__init__(daemon=True)
         self._event_queue = event_queue
-        self._stop_event = Event()
-        self._stop_event.clear()
+        self._work_event = Event()
+        self._work_event.set()
 
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._socket.bind(("", port if port != -1 else 0))
@@ -132,11 +132,18 @@ class ResponseListener(Thread):
 
     def run(self):
 
+        self._socket.settimeout(0.5)
         self._socket.listen(1)
-        while not self._stop_event.is_set():
+        self._log.info(f"Begin listening on {self._public_addr}:{self._port}")
+        while self._work_event.is_set():
 
-            conn, addr = self._socket.accept()
-            with conn:
+            try:
+                conn, addr = self._socket.accept()
+            except socket.timeout:
+                pass
+            except:
+                raise
+            else:
                 self._log.info(f"Connected with {addr}")
                 data = json.loads(conn.recv(1024).decode())
                 self._log.info(
@@ -146,15 +153,15 @@ class ResponseListener(Thread):
                 self._event_queue.add_event(data)
         self._log.info(f"Close response listener thread on {self._public_addr}:{self._port}")
         self._socket.close()
-        self._stop_event.clear()
+        self._work_event.set()
 
     """
-        Set stop event and wait until run method clears it.
+        Clear work event and wait until run method sets it again before exiting.
         This certifies that thread has finished.
     """
     def stop(self):
-        self._stop_event.set()
-        self._stop_event.wait()
+        self._work_event.clear()
+        self._work_event.wait()
 
 
 # FIXME: add sesssion state - id, name, config
@@ -176,8 +183,18 @@ class WorkerThread(Thread):
         self._provider_client = provider_client
         self._response_handler = response_handler
         self._log = logging.getLogger("faaskeeper")
+        self._work_event = Event()
+        self._work_event.set()
 
         self.start()
+
+    """
+        Set stop event and wait until run method clears it.
+        This certifies that thread has finished.
+    """
+    def stop(self):
+        self._work_event.clear()
+        self._work_event.wait()
 
     # FIXME: batching of write requests
     def run(self):
@@ -191,7 +208,8 @@ class WorkerThread(Thread):
             event.clear()
             result = response
 
-        while True:
+        self._log.info(f"Begin queue worker thread.")
+        while self._work_event.is_set():
 
             if not self._queue.empty():
                 req_id, request, future = self._queue.pop()
@@ -234,4 +252,7 @@ class WorkerThread(Thread):
                 )
 
             else:
-                self._queue._wait_event.wait()
+                self._queue._wait_event.wait(1)
+        self._log.info(f"Close queue worker thread.")
+        self._work_event.set()
+

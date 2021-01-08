@@ -127,20 +127,20 @@ class FaaSKeeperClient:
                 f"session: {self._session_id}"
             )
 
-            self._event_queue.close()
-            self._response_handler.stop()
-            # self._work_thread.join(3)
-            # if self._response_handler.is_alive() or self._work_thread.is_alive():
-            #    raise TimeoutException()
         except TimeoutException as e:
             self._log.error("Service unavailable, couldn't properly close session")
             raise e
         finally:
+            self._event_queue.close()
+            self._response_handler.stop()
+            self._work_thread.stop()
+            assert not (self._response_handler.is_alive() or self._work_thread.is_alive())
             self._session_id = None
             self._work_queue = None
             self._event_queue = None
             self._response_handler = None
             self._work_thread = None
+            self._closing_down = False
 
         return "closed"
 
