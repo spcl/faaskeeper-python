@@ -150,9 +150,8 @@ class FaaSKeeperClient:
         ephemeral: bool = False,
         sequential: bool = False,
     ) -> Future:
-        # FIXME: add exception classes
         if not self._session_id:
-            raise RuntimeError()
+            raise SessionExpiredException()
 
         FaaSKeeperClient._sanitize_path(path)
         flags = 0
