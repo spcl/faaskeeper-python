@@ -126,7 +126,7 @@ class ResponseListener(Thread):
         req = urllib.request.urlopen("https://checkip.amazonaws.com")
         self._public_addr = req.read().decode().strip()
         self._port = self._socket.getsockname()[1]
-        self._log = logging.getLogger("faaskeeper")
+        self._log = logging.getLogger("ResponseListener")
 
         self.start()
 
@@ -147,7 +147,6 @@ class ResponseListener(Thread):
                 self._log.info(f"Connected with {addr}")
                 data = json.loads(conn.recv(1024).decode())
                 self._log.info(
-                    f"[{str(datetime.now())}] (ResponseListener) "
                     f"Received message: {data}"
                 )
                 self._event_queue.add_event(data)
@@ -182,7 +181,7 @@ class WorkerThread(Thread):
         self._event_queue = event_queue
         self._provider_client = provider_client
         self._response_handler = response_handler
-        self._log = logging.getLogger("faaskeeper")
+        self._log = logging.getLogger("WorkerThread")
         self._work_event = Event()
         self._work_event.set()
 
@@ -220,8 +219,7 @@ class WorkerThread(Thread):
                     and wait until response arrives.
                 """
                 self._log.info(
-                    f"[{str(datetime.now())}] (WorkerThread) Begin "
-                    f"executing operation: {request.name}"
+                    f"Begin executing operation: {request.name}"
                 )
                 if request.is_cloud_request():
                     try:
@@ -247,8 +245,7 @@ class WorkerThread(Thread):
                     except Exception as e:
                         future.set_exception(e)
                 self._log.info(
-                    f"[{str(datetime.now())}] (WorkerThread) Finish "
-                    f"executing operation: {request.name}"
+                    f"Finish executing operation: {request.name}"
                 )
 
             else:

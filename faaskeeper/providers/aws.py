@@ -9,7 +9,8 @@ from faaskeeper.exceptions import AWSException
 class AWSClient(ProviderClient):
     def __init__(self, service_name: str, verbose: bool):
         super().__init__(service_name)
-        self._dynamodb = boto3.client("dynamodb")
+        self._dynamodb = boto3.client("dynamodb", endpoint_url="http://localhost:8000")
+        #self._dynamodb = boto3.client("dynamodb")
 
     @staticmethod
     def _dynamodb_type(val):
@@ -41,10 +42,11 @@ class AWSClient(ProviderClient):
     ):
         # FIXME: handle failure
         try:
+            import uuid
             ret = self._dynamodb.put_item(
                 TableName=f"{self._service_name}-write-queue",
                 Item=AWSClient._convert_items(
-                    {**data, "key": self._service_name, "timestamp": request_id}
+                    {**data, "key": f"self._service_name_{str(uuid.uuid4())[0:4]}", "timestamp": request_id}
                 ),
             )
         except Exception as e:
@@ -76,3 +78,4 @@ class AWSClient(ProviderClient):
             )
         except Exception as e:
             raise AWSException(f"Failure on AWS client: {str(e)}")
+

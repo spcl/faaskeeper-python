@@ -23,7 +23,7 @@ class FaaSKeeperClient:
     _providers = {"aws": AWSClient}
 
     def __init__(
-        self, provider: str, service_name: str, port: int = -1, verbose: bool = False
+        self, provider: str, service_name: str, port: int = -1, verbose: bool = False, debug: bool = False
     ):
         self._client_id = str(uuid.uuid4())[0:8]
         self._service_name = service_name
@@ -34,17 +34,22 @@ class FaaSKeeperClient:
         )
         self._port = port
 
-        self._log = logging.getLogger("faaskeeper")
-        self._log.propagate = False
-        for handler in self._log.handlers:
-            self._log.removeHandler(handler)
-        if verbose:
-            self._log.setLevel(logging.INFO)
+        if debug and verbose:
+            logging.basicConfig(
+                level=logging.DEBUG,
+                format='[%(asctime)s] (%(name)s - %(filename)s(%(funcName)s:%(lineno)s)) %(message)s',
+            )
+        elif verbose:
+            logging.basicConfig(
+                level=logging.INFO,
+                format='[%(asctime)s] (%(name)s) %(message)s',
+            )
         else:
-            self._log.setLevel(logging.ERROR)
-        self._log_handler = logging.StreamHandler(sys.stdout)
-        self._log_handler.setLevel(logging.INFO)
-        self._log.addHandler(self._log_handler)
+            logging.basicConfig(
+                level=logging.ERROR,
+                format='[%(asctime)s] (%(name)s) %(message)s',
+            )
+        self._log = logging.getLogger("FaaSKeeperClient")
 
     @property
     def session_id(self) -> Optional[str]:
@@ -94,8 +99,7 @@ class FaaSKeeperClient:
         )
         future.get()
         self._log.info(
-            f"[{str(datetime.now())}] (FaaSKeeperClient) Registered "
-            f"session: {self._session_id}"
+            f"Registered session: {self._session_id}"
         )
         return self._session_id
 
@@ -123,8 +127,7 @@ class FaaSKeeperClient:
             self._work_queue.wait_close(3)
             future.get()
             self._log.info(
-                f"[{str(datetime.now())}] (FaaSKeeperClient) Deregistered "
-                f"session: {self._session_id}"
+                f" Deregistered session: {self._session_id}"
             )
 
         except TimeoutException as e:
