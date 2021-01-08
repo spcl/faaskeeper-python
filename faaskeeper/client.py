@@ -128,7 +128,7 @@ class FaaSKeeperClient:
             )
 
             self._event_queue.close()
-            #self._response_handler.stop()
+            self._response_handler.stop()
             # self._work_thread.join(3)
             # if self._response_handler.is_alive() or self._work_thread.is_alive():
             #    raise TimeoutException()

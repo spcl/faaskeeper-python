@@ -117,6 +117,8 @@ class ResponseListener(Thread):
 
         super().__init__(daemon=True)
         self._event_queue = event_queue
+        self._stop_event = Event()
+        self._stop_event.clear()
 
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._socket.bind(("", port if port != -1 else 0))
@@ -130,19 +132,29 @@ class ResponseListener(Thread):
 
     def run(self):
 
-        self._socket.listen(5)
-
-        while True:
+        self._socket.listen(1)
+        while not self._stop_event.is_set():
 
             conn, addr = self._socket.accept()
             with conn:
-                logging.info(f"Connected with {addr}")
+                self._log.info(f"Connected with {addr}")
                 data = json.loads(conn.recv(1024).decode())
                 self._log.info(
                     f"[{str(datetime.now())}] (ResponseListener) "
                     f"Received message: {data}"
                 )
                 self._event_queue.add_event(data)
+        self._log.info(f"Close response listener thread on {self._public_addr}:{self._port}")
+        self._socket.close()
+        self._stop_event.clear()
+
+    """
+        Set stop event and wait until run method clears it.
+        This certifies that thread has finished.
+    """
+    def stop(self):
+        self._stop_event.set()
+        self._stop_event.wait()
 
 
 # FIXME: add sesssion state - id, name, config
