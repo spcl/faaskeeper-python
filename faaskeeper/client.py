@@ -63,6 +63,13 @@ class FaaSKeeperClient:
 
     # FIXME: exception for incorrect connection
     def start(self) -> str:
+        if self._session_id:
+            self._log.info("Close existing session")
+            # ignore timeouts and problems here
+            try:
+                self.stop()
+            except:
+                pass
         """
             1) Start thread handling replies from FK.
             2) Start heartbeat thread
@@ -121,7 +128,7 @@ class FaaSKeeperClient:
             )
 
             self._event_queue.close()
-            # self._response_handler.stop()
+            #self._response_handler.stop()
             # self._work_thread.join(3)
             # if self._response_handler.is_alive() or self._work_thread.is_alive():
             #    raise TimeoutException()
