@@ -2,6 +2,7 @@ import logging
 import io
 import uuid
 from datetime import datetime
+from typing import Optional
 
 from faaskeeper.queue import WorkQueue, EventQueue, ResponseListener, WorkerThread
 from faaskeeper.operations import (
@@ -13,7 +14,7 @@ from faaskeeper.operations import (
 )
 from faaskeeper.providers.aws import AWSClient
 from faaskeeper.threading import Future
-from faaskeeper.exceptions import MalformedInputException, SessionExpiredException
+from faaskeeper.exceptions import MalformedInputException, SessionExpiredException, TimeoutException
 
 
 class FaaSKeeperClient:
@@ -43,10 +44,12 @@ class FaaSKeeperClient:
         self._log.addHandler(self._log_handler)
 
     @property
-    def session_id(self) -> str:
-        if not self._session_id:
-            raise SessionExpiredException()
+    def session_id(self) -> Optional[str]:
         return self._session_id
+
+    @property
+    def session_status(self) -> str:
+        return "CONNECTED" if self._session_id else "DISCONNECTED"
 
     @staticmethod
     def _sanitize_path(path: str):
@@ -100,30 +103,34 @@ class FaaSKeeperClient:
             4) Stop heartbeat thread
         """
         self._closing_down = True
-        future = Future()
-        self._work_queue.add_request(
-            DeregisterSession(session_id=self._session_id,), future,
-        )
-        self._work_queue.close()
-        self._work_queue.wait_close(3)
-        future.get()
-        self._log.info(
-            f"[{str(datetime.now())}] (FaaSKeeperClient) Deregistered "
-            f"session: {self._session_id}"
-        )
+        try:
+            future = Future()
+            self._work_queue.add_request(
+                DeregisterSession(session_id=self._session_id,), future,
+            )
+            self._work_queue.close()
+            self._work_queue.wait_close(3)
+            future.get()
+            self._log.info(
+                f"[{str(datetime.now())}] (FaaSKeeperClient) Deregistered "
+                f"session: {self._session_id}"
+            )
 
-        self._event_queue.close()
-        # FIXME: close threads
-        # self._response_handler.join(3)
-        # self._work_thread.join(3)
-        # if self._response_handler.is_alive() or self._work_thread.is_alive():
-        #    raise TimeoutException()
-
-        self._session_id = None
-        self._work_queue = None
-        self._event_queue = None
-        self._response_handler = None
-        self._work_thread = None
+            self._event_queue.close()
+            # FIXME: close threads
+            # self._response_handler.join(3)
+            # self._work_thread.join(3)
+            # if self._response_handler.is_alive() or self._work_thread.is_alive():
+            #    raise TimeoutException()
+        except TimeoutException as e:
+            self._log.error("Service unavailable, couldn't properly close session")
+            raise e
+        finally:
+            self._session_id = None
+            self._work_queue = None
+            self._event_queue = None
+            self._response_handler = None
+            self._work_thread = None
 
         return "closed"
 
