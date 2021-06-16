@@ -65,14 +65,19 @@ class AWSClient(ProviderClient):
         except Exception as e:
             raise AWSException(f"Failure on AWS client: {str(e)}")
 
-    def register_session(self, session_id: str, source_addr: str):
+    def register_session(self, session_id: str, source_addr: str, heartbeat: bool):
 
         # FIXME: handle potential conflicts?
         try:
             ret = self._dynamodb.put_item(
                 TableName=f"{self._service_name}-state",
                 Item=AWSClient._convert_items(
-                    {"type": session_id, "addr": source_addr, "ephemerals": []}
+                    {
+                        "type": session_id,
+                        "addr": source_addr,
+                        "ephemerals": [],
+                        "heartbeat": heartbeat
+                    }
                 ),
                 ReturnConsumedCapacity="TOTAL",
             )

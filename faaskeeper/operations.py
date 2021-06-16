@@ -126,9 +126,10 @@ class GetData(DirectOperation):
 
 
 class RegisterSession(DirectOperation):
-    def __init__(self, session_id: str, source_addr: str):
+    def __init__(self, session_id: str, source_addr: str, heartbeat: bool):
         super().__init__(session_id, "")
         self.source_addr = source_addr
+        self.heartbeat = heartbeat
 
     @property
     def name(self) -> str:

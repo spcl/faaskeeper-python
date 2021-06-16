@@ -23,12 +23,19 @@ class FaaSKeeperClient:
     _providers = {"aws": AWSClient}
 
     def __init__(
-        self, provider: str, service_name: str, port: int = -1, verbose: bool = False, debug: bool = False
+        self,
+        provider: str,
+        service_name: str,
+        port: int = -1,
+        heartbeat: bool = True,
+        verbose: bool = False,
+        debug: bool = False
     ):
         self._client_id = str(uuid.uuid4())[0:8]
         self._service_name = service_name
         self._session_id = None
         self._closing_down = False
+        self._heartbeat = heartbeat
         self._provider_client = FaaSKeeperClient._providers[provider](
             service_name, verbose
         )
@@ -95,7 +102,11 @@ class FaaSKeeperClient:
         addr = f"{self._response_handler.address}:{self._response_handler.port}"
         future = Future()
         self._work_queue.add_request(
-            RegisterSession(session_id=self._session_id, source_addr=addr,), future,
+            RegisterSession(
+                session_id=self._session_id,
+                source_addr=addr,
+                heartbeat=self._heartbeat != -1
+            ), future,
         )
         future.get()
         self._log.info(
