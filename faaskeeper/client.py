@@ -1,8 +1,5 @@
 import logging
-import io
 import uuid
-import sys
-from datetime import datetime
 from typing import Optional
 
 from faaskeeper.queue import WorkQueue, EventQueue, ResponseListener, WorkerThread
@@ -15,7 +12,11 @@ from faaskeeper.operations import (
 )
 from faaskeeper.providers.aws import AWSClient
 from faaskeeper.threading import Future
-from faaskeeper.exceptions import MalformedInputException, SessionExpiredException, TimeoutException
+from faaskeeper.exceptions import (
+    MalformedInputException,
+    SessionExpiredException,
+    TimeoutException,
+)
 
 
 class FaaSKeeperClient:
@@ -29,7 +30,7 @@ class FaaSKeeperClient:
         port: int = -1,
         heartbeat: bool = True,
         verbose: bool = False,
-        debug: bool = False
+        debug: bool = False,
     ):
         self._client_id = str(uuid.uuid4())[0:8]
         self._service_name = service_name
@@ -44,17 +45,16 @@ class FaaSKeeperClient:
         if debug and verbose:
             logging.basicConfig(
                 level=logging.DEBUG,
-                format='[%(asctime)s] (%(name)s - %(filename)s(%(funcName)s:%(lineno)s)) %(message)s',
+                format="[%(asctime)s] (%(name)s - %(filename)s(%(funcName)s"
+                ":%(lineno)s)) %(message)s",
             )
         elif verbose:
             logging.basicConfig(
-                level=logging.INFO,
-                format='[%(asctime)s] (%(name)s) %(message)s',
+                level=logging.INFO, format="[%(asctime)s] (%(name)s) %(message)s",
             )
         else:
             logging.basicConfig(
-                level=logging.ERROR,
-                format='[%(asctime)s] (%(name)s) %(message)s',
+                level=logging.ERROR, format="[%(asctime)s] (%(name)s) %(message)s",
             )
         self._log = logging.getLogger("FaaSKeeperClient")
 
@@ -80,7 +80,7 @@ class FaaSKeeperClient:
             # ignore timeouts and problems here
             try:
                 self.stop()
-            except:
+            except Exception:
                 pass
         """
             1) Start thread handling replies from FK.
@@ -105,13 +105,12 @@ class FaaSKeeperClient:
             RegisterSession(
                 session_id=self._session_id,
                 source_addr=addr,
-                heartbeat=self._heartbeat != -1
-            ), future,
+                heartbeat=self._heartbeat != -1,
+            ),
+            future,
         )
         future.get()
-        self._log.info(
-            f"Registered session: {self._session_id}"
-        )
+        self._log.info(f"Registered session: {self._session_id}")
         return self._session_id
 
     def stop(self):
@@ -137,9 +136,7 @@ class FaaSKeeperClient:
             self._work_queue.close()
             self._work_queue.wait_close(3)
             future.get()
-            self._log.info(
-                f" Deregistered session: {self._session_id}"
-            )
+            self._log.info(f" Deregistered session: {self._session_id}")
 
         except TimeoutException as e:
             self._log.error("Service unavailable, couldn't properly close session")
@@ -148,7 +145,9 @@ class FaaSKeeperClient:
             self._event_queue.close()
             self._response_handler.stop()
             self._work_thread.stop()
-            assert not (self._response_handler.is_alive() or self._work_thread.is_alive())
+            assert not (
+                self._response_handler.is_alive() or self._work_thread.is_alive()
+            )
             self._session_id = None
             self._work_queue = None
             self._event_queue = None

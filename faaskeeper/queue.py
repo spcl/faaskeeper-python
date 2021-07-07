@@ -3,7 +3,6 @@ import logging
 import socket
 import time
 import urllib.request
-from datetime import datetime
 from threading import Thread, Event
 from collections import deque
 from typing import Callable, Deque, Dict, Tuple
@@ -141,16 +140,16 @@ class ResponseListener(Thread):
                 conn, addr = self._socket.accept()
             except socket.timeout:
                 pass
-            except:
+            except Exception:
                 raise
             else:
                 self._log.info(f"Connected with {addr}")
                 data = json.loads(conn.recv(1024).decode())
-                self._log.info(
-                    f"Received message: {data}"
-                )
+                self._log.info(f"Received message: {data}")
                 self._event_queue.add_event(data)
-        self._log.info(f"Close response listener thread on {self._public_addr}:{self._port}")
+        self._log.info(
+            f"Close response listener thread on {self._public_addr}:{self._port}"
+        )
         self._socket.close()
         self._work_event.set()
 
@@ -158,6 +157,7 @@ class ResponseListener(Thread):
         Clear work event and wait until run method sets it again before exiting.
         This certifies that thread has finished.
     """
+
     def stop(self):
         self._work_event.clear()
         self._work_event.wait()
@@ -191,6 +191,7 @@ class WorkerThread(Thread):
         Set stop event and wait until run method clears it.
         This certifies that thread has finished.
     """
+
     def stop(self):
         self._work_event.clear()
         self._work_event.wait()
@@ -218,9 +219,7 @@ class WorkerThread(Thread):
                     cloud service, egister yourself with an event queue
                     and wait until response arrives.
                 """
-                self._log.info(
-                    f"Begin executing operation: {request.name}"
-                )
+                self._log.info(f"Begin executing operation: {request.name}")
                 if request.is_cloud_request():
                     try:
                         self._event_queue.add_callback(req_id, callback)
@@ -244,12 +243,9 @@ class WorkerThread(Thread):
                         future.set_result(res)
                     except Exception as e:
                         future.set_exception(e)
-                self._log.info(
-                    f"Finish executing operation: {request.name}"
-                )
+                self._log.info(f"Finish executing operation: {request.name}")
 
             else:
                 self._queue._wait_event.wait(1)
         self._log.info(f"Close queue worker thread.")
         self._work_event.set()
-
