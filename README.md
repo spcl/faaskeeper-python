@@ -2,6 +2,4 @@
 
 **The Python client library for the serverless coordination service FaaSKeeper.**
 
-![GH Actions](https://github.com/mcopik/faaskeeper-python/actions/workflows/build.yml/badge.svg)
-
-
+[![GH Actions](https://github.com/mcopik/faaskeeper-python/actions/workflows/build.yml/badge.svg)](https://github.com/mcopik/faaskeeper-python/actions/workflows/build.yml)
