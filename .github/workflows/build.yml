@@ -23,7 +23,7 @@ jobs:
           pip install -e .
       - name: Lint with flake8
         run: |
-					tools/linting.py faaskeeper
+          tools/linting.py faaskeeper
       - name: Test with pytest
         run: |
           pytest
