@@ -45,7 +45,7 @@ class AWSClient(ProviderClient):
             import uuid
 
             # FIXME: check return value
-            ret = self._dynamodb.put_item(
+            self._dynamodb.put_item(
                 TableName=f"{self._service_name}-write-queue",
                 Item=AWSClient._convert_items(
                     {
@@ -76,7 +76,7 @@ class AWSClient(ProviderClient):
 
         # FIXME: handle potential conflicts?
         try:
-            ret = self._dynamodb.put_item(
+            self._dynamodb.put_item(
                 TableName=f"{self._service_name}-state",
                 Item=AWSClient._convert_items(
                     {

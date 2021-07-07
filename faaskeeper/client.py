@@ -34,7 +34,7 @@ class FaaSKeeperClient:
     ):
         self._client_id = str(uuid.uuid4())[0:8]
         self._service_name = service_name
-        self._session_id = None
+        self._session_id: Optional[str] = None
         self._closing_down = False
         self._heartbeat = heartbeat
         self._provider_client = FaaSKeeperClient._providers[provider](
@@ -157,10 +157,6 @@ class FaaSKeeperClient:
 
         return "closed"
 
-    def logs(self) -> str:
-        self._log_handler.flush()
-        return self._log_stream.getvalue()
-
     # TODO: ACL
     def create(
         self,
@@ -208,6 +204,7 @@ class FaaSKeeperClient:
 
         FaaSKeeperClient._sanitize_path(path)
         future = Future()
+        assert self.session_id
         self._work_queue.add_request(
             GetData(session_id=self.session_id, path=path), future,
         )
