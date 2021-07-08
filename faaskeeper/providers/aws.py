@@ -39,7 +39,6 @@ class AWSClient(ProviderClient):
         # FIXME: handle failure
         try:
             import uuid
-
             # FIXME: check return value
             self._dynamodb.put_item(
                 TableName=f"{self._service_name}-write-queue",
@@ -67,11 +66,13 @@ class AWSClient(ProviderClient):
     def register_session(self, session_id: str, source_addr: str, heartbeat: bool):
 
         # FIXME: handle potential conflicts?
+        # FIXME: fix heartbeat - it should be a frequency, not bool
         try:
             self._dynamodb.put_item(
                 TableName=f"{self._service_name}-state",
                 Item=AWSClient._convert_items(
-                    {"type": session_id, "addr": source_addr, "ephemerals": [], "heartbeat": heartbeat}
+                    #{"type": session_id, "addr": source_addr, "ephemerals": [], "heartbeat": heartbeat}
+                    {"type": session_id, "addr": source_addr, "ephemerals": []}
                 ),
                 ReturnConsumedCapacity="TOTAL",
             )
