@@ -20,6 +20,16 @@ from faaskeeper.exceptions import (
 
 
 class FaaSKeeperClient:
+    """This class represents the client connection to a FaaSKeeper instance
+    and encapsulates a session.
+
+    :param provider: name of the cloud provider, currently supported only "aws"
+    :param service_name: name of the FaaSKeeper deployment instance
+    :param port: port used to listening for incoming packets, defaults to -1
+    :param heartbeat: if true, then this client will request heartbeat messages from the service
+    :param verbose: verbose output of all operations
+    :param debug: full debug output of all operations
+    """
 
     _providers = {"aws": AWSClient}
 
@@ -60,10 +70,16 @@ class FaaSKeeperClient:
 
     @property
     def session_id(self) -> Optional[str]:
+        """
+        :returns: session id 
+        """
         return self._session_id
 
     @property
     def session_status(self) -> str:
+        """
+        :returns: text description of session status
+        """
         return "CONNECTED" if self._session_id else "DISCONNECTED"
 
     @staticmethod
@@ -75,6 +91,15 @@ class FaaSKeeperClient:
 
     # FIXME: exception for incorrect connection
     def start(self) -> str:
+        """Establish a connection to FaaSKeeper and start a session.
+        The function starts two background threads: worker to handle the submission
+        of new requests, and an event handler to receive replies and propagate results
+        in an asynchronous manner.
+
+        :returns: the ID of new session
+        :raises: ?
+        """
+
         if self._session_id:
             self._log.info("Close existing session")
             # ignore timeouts and problems here
@@ -114,6 +139,13 @@ class FaaSKeeperClient:
         return self._session_id
 
     def stop(self):
+        """Disconnect from FaaSKeeper and stop the session.
+        Cleans resources and stops both background threads.
+
+        :returns: the ID of new session
+        :raises: ?
+        """
+
         if self._session_id is None:
             return "closed"
         if self._closing_down:
@@ -157,7 +189,7 @@ class FaaSKeeperClient:
 
         return "closed"
 
-    # TODO: ACL
+    # FIXME: remove acl
     def create(
         self,
         path: str,
@@ -166,8 +198,18 @@ class FaaSKeeperClient:
         ephemeral: bool = False,
         sequential: bool = False,
     ) -> str:
+        """Create new node synchronously.
+
+        :param path: node path
+        :param value: node data encoded as bytes
+        :param ephemeral: true when this node should be ephemeral
+        :param sequential: true when this node should have sequential path
+        :returns: the path of new node
+        """
         return self.create_async(path, value, acl, ephemeral, sequential).get()
 
+    # FIXME: remove acl
+    # FIXME: Document exceptions
     def create_async(
         self,
         path: str,
@@ -176,6 +218,14 @@ class FaaSKeeperClient:
         ephemeral: bool = False,
         sequential: bool = False,
     ) -> Future:
+        """Create new node in an asynchronous mode.
+
+        :param path: node path
+        :param value: node data encoded as bytes
+        :param ephemeral: true when this node should be ephemeral
+        :param sequential: true when this node should have sequential path
+        :returns: future representing the operation and its result - the path of the new node
+        """
         if not self._session_id:
             raise SessionExpiredException()
 
@@ -195,12 +245,26 @@ class FaaSKeeperClient:
         )
         return future
 
-    # FIXME: watch
-    # FIXME: stat
-    def get_data(self, path: str,) -> bytes:
+    # FIXME: add watch
+    # FIXME: implement node stats
+    # FIXME: document exceptions
+    def get_data(self, path: str) -> bytes:
+        """Retrieve user data from a node.
+
+        :param path: node path
+        :returns: user data as bytes
+        """
         return self.get_data_async(path).get()
 
-    def get_data_async(self, path: str,) -> Future:
+    # FIXME: add watch
+    # FIXME: implement node stats
+    # FIXME: document exceptions
+    def get_data_async(self, path: str) -> Future:
+        """Retrieve user data in an asynchronous mode.
+
+        :param path: node path
+        :returns: future representing the operation and its result - user data as bytes
+        """
 
         FaaSKeeperClient._sanitize_path(path)
         future = Future()
@@ -210,12 +274,30 @@ class FaaSKeeperClient:
         )
         return future
 
+    # FIXME: document exceptions
+    # FIXME: conditonal updates based on user data
     def set_data(self, path: str, value: bytes = b"", version: int = -1) -> str:
+        """Modify the user data in a node.
+
+        :param path: node path
+        :param values: new data to be written
+        :param version: apply the modification only if current version agrees with the argument, defaults to -1
+        :returns: confirmation and new node version.
+        """
         return self.set_data_async(path, value, version).get()
 
+    # FIXME: document exceptions
+    # FIXME: conditonal updates based on user data
     def set_data_async(
         self, path: str, value: bytes = b"", version: int = -1
     ) -> Future:
+        """Modify the user data in a node in an asynchronous mode.
+
+        :param path: node path
+        :param values: new data to be written
+        :param version: apply the modification only if current version agrees with the argument, defaults to -1
+        :returns: future representing the operation and its result - confirmation and new node version
+        """
         # FIXME: add exception classes
         if not self._session_id:
             raise RuntimeError()
@@ -229,3 +311,4 @@ class FaaSKeeperClient:
             future,
         )
         return future
+

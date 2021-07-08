@@ -17,18 +17,24 @@ from faaskeeper.exceptions import (
 from faaskeeper.providers.provider import ProviderClient
 
 
-def wait_until(condition, timeout: int, interval: float = 0.1, *args):
+def wait_until(condition, timeout: float, interval: float, *args):
+    """A simple hack to wait for an event until a specified length of time passes.
+
+    :param condition: event condition to be evaluated
+    :param timeout: time to wait for a result [seconds]
+    :param interval: sleep time - defines how frequently we check for a result [seconds]
+    :param args: arguments passed to the condition function
+    """
     start = time.time()
     while not condition(*args) and time.time() - start < timeout:
         time.sleep(interval)
 
-
-"""
-    Queue is served by a single thread processing requests.
-"""
-
-
 class WorkQueue:
+    """The queue is used to add new requets passed to the FK service.
+    All requests are processed in the FIFO order.
+    The queue is served by a single thread processing requests.
+    """
+
     def __init__(self):
         self._request_count = 0
         self._queue: Deque[Tuple[int, Operation, Future]] = deque()
@@ -54,22 +60,23 @@ class WorkQueue:
     def close(self):
         self._closing = True
 
-    def wait_close(self, timeout: int = -1):
+    def wait_close(self, timeout: float = -1):
         if timeout > 0:
             wait_until(self.empty, timeout)
             if not self.empty():
                 raise TimeoutException(timeout)
 
 
-"""
-    Handle watch notification events and replies from service.
-
-    In the current implementation, callbacks block the current thread.
-
-"""
 
 
 class EventQueue:
+    """The queue is used to handle replies and watch notifications from the service.
+    Its second responsibility is ensuring that the results are correctly ordered.
+
+    The queue is served by a single thread processing events.
+    In the current implementation, callbacks block the only thread.
+    """
+
     def __init__(self):
         # self._queue: Deque[Tuple[int, dict]] = deque()
         self._outstanding_waits: Dict[int, Callable[[dict], None]] = {}
@@ -104,6 +111,12 @@ class EventQueue:
 
 
 class ResponseListener(Thread):
+    """The thread receives replies and watch notifications from the service.
+    After calling `run`, the thread runs in the background until `stop` is called.
+
+    :param event_queue: reference to the event queue processing replies
+    :param port: port to be used for listening for replies, defalts to -1
+    """
     @property
     def address(self):
         return self._public_addr
@@ -153,18 +166,30 @@ class ResponseListener(Thread):
         self._socket.close()
         self._work_event.set()
 
-    """
-        Clear work event and wait until run method sets it again before exiting.
-        This certifies that thread has finished.
-    """
 
     def stop(self):
+        """
+        Clear work event and wait until run method sets it again before exiting.
+        This certifies that thread has finished.
+
+        Since the thread listens on a socket with a time out of 0.5 seconds,
+        the stopping can take up to 0.5 second in the worst case.
+        """
         self._work_event.clear()
         self._work_event.wait()
 
 
 # FIXME: add sesssion state - id, name, config
+# FIXME: do we need service name?
+# FIXME: is the current implementation good? Make sure that ordering is implemented while we don't delay unnecessarily
 class WorkerThread(Thread):
+    """The thread polls requests from work queue, submits them, and waits for replies.
+    After calling `run`, the thread runs in the background until `stop` is called.
+
+    :param session_id: ID of active session
+    :param service_name: name of FK deployment in cloud
+    """
+
     def __init__(
         self,
         session_id: str,
@@ -187,12 +212,12 @@ class WorkerThread(Thread):
 
         self.start()
 
-    """
-        Set stop event and wait until run method clears it.
-        This certifies that thread has finished.
-    """
 
     def stop(self):
+        """
+            Sets stop event and wait until run method clears it.
+            This certifies that thread has finished.
+        """
         self._work_event.clear()
         self._work_event.wait()
 
@@ -216,7 +241,7 @@ class WorkerThread(Thread):
 
                 """
                     Send the request to execution to the underlying
-                    cloud service, egister yourself with an event queue
+                    cloud service, register yourself with an event queue
                     and wait until response arrives.
                 """
                 self._log.info(f"Begin executing operation: {request.name}")
@@ -249,3 +274,4 @@ class WorkerThread(Thread):
                 self._queue._wait_event.wait(1)
         self._log.info(f"Close queue worker thread.")
         self._work_event.set()
+

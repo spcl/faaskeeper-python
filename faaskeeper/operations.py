@@ -10,6 +10,12 @@ from faaskeeper.exceptions import (
 
 
 class Operation(ABC):
+    """Abstract base class for all provider-agnostic operations submitted to FK instance.
+
+    :param session_id: ID of current session 
+    :param path: path of target node 
+    """
+
     def __init__(self, session_id: str, path: str):
         self._session_id = session_id
         self._path = path
@@ -29,6 +35,12 @@ class Operation(ABC):
 
 
 class RequestOperation(Operation):
+    """Base class for all operations submitted to FK work queue.
+
+    :param session_id: ID of current session 
+    :param path: path of target node 
+    """
+
     def __init__(self, session_id: str, path: str):
         super().__init__(session_id, path)
 
@@ -45,6 +57,12 @@ class RequestOperation(Operation):
 
 
 class DirectOperation(Operation):
+    """Base class for all operations executed directly by the client library.
+
+    :param session_id: ID of current session 
+    :param path: path of target node 
+    """
+
     def __init__(self, session_id: str, path: str):
         super().__init__(session_id, path)
 
@@ -53,6 +71,7 @@ class DirectOperation(Operation):
 
 
 class CreateNode(RequestOperation):
+
     def __init__(self, session_id: str, path: str, value: bytes, acl: int, flags: int):
         super().__init__(session_id, path)
         self._value = value
