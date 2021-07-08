@@ -42,10 +42,10 @@ please run `tools/linting.py faaskeeper` to verify that there are no issues with
 
 We use Python type hints ([PEP](https://www.python.org/dev/peps/pep-0484/), [docs](https://docs.python.org/3/library/typing.html))
 to enhance the readability of our code. When adding new interfaces and types, please use type hints.
-The linting helper `tools/lintig.py` includes a call to `mypy` to check for static typing errors.
+The linting helper `tools/linting.py` includes a call to `mypy` to check for static typing errors.
 
 To install the local development environment with all necessary packages, please use the `install.py`
 script. The script takes one optional argument `--venv` with a path to the Python virtual environment,
-and the default path is `python-venv`. Use `source {venv-path}bin/activate` to use it.
+and the default path is `python-venv`. Use `source {venv-path}/bin/activate` to use it.
 
 
