@@ -24,6 +24,6 @@ jobs:
       - name: Lint with flake8
         run: |
           tools/linting.py faaskeeper
-      - name: Test with pytest
-        run: |
-          pytest
+          #- name: Test with pytest
+          #  run: |
+          #    pytest
