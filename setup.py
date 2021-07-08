@@ -10,6 +10,7 @@ setup(
     license='BSD-3',
     author='Marcin Copik',
     author_email='mcopik@gmail.com',
-    description='FaaSKeeper Python client'
+    description='FaaSKeeper Python client',
+    packages = ['faaskeeper']
 )
 
