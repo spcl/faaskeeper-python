@@ -17,17 +17,18 @@ from faaskeeper.exceptions import (
 from faaskeeper.providers.provider import ProviderClient
 
 
-def wait_until(condition, timeout: float, interval: float, *args):
+def wait_until(timeout: float, interval: float, condition, *args):
     """A simple hack to wait for an event until a specified length of time passes.
 
-    :param condition: event condition to be evaluated
     :param timeout: time to wait for a result [seconds]
     :param interval: sleep time - defines how frequently we check for a result [seconds]
+    :param condition: event condition to be evaluated
     :param args: arguments passed to the condition function
     """
     start = time.time()
     while not condition(*args) and time.time() - start < timeout:
         time.sleep(interval)
+
 
 class WorkQueue:
     """The queue is used to add new requets passed to the FK service.
@@ -62,11 +63,9 @@ class WorkQueue:
 
     def wait_close(self, timeout: float = -1):
         if timeout > 0:
-            wait_until(self.empty, timeout)
+            wait_until(timeout, 0.1, self.empty)
             if not self.empty():
                 raise TimeoutException(timeout)
-
-
 
 
 class EventQueue:
@@ -117,6 +116,7 @@ class ResponseListener(Thread):
     :param event_queue: reference to the event queue processing replies
     :param port: port to be used for listening for replies, defalts to -1
     """
+
     @property
     def address(self):
         return self._public_addr
@@ -160,12 +160,9 @@ class ResponseListener(Thread):
                 data = json.loads(conn.recv(1024).decode())
                 self._log.info(f"Received message: {data}")
                 self._event_queue.add_event(data)
-        self._log.info(
-            f"Close response listener thread on {self._public_addr}:{self._port}"
-        )
+        self._log.info(f"Close response listener thread on {self._public_addr}:{self._port}")
         self._socket.close()
         self._work_event.set()
-
 
     def stop(self):
         """
@@ -211,7 +208,6 @@ class WorkerThread(Thread):
         self._work_event.set()
 
         self.start()
-
 
     def stop(self):
         """
@@ -274,4 +270,3 @@ class WorkerThread(Thread):
                 self._queue._wait_event.wait(1)
         self._log.info(f"Close queue worker thread.")
         self._work_event.set()
-

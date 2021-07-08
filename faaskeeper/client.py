@@ -47,16 +47,13 @@ class FaaSKeeperClient:
         self._session_id: Optional[str] = None
         self._closing_down = False
         self._heartbeat = heartbeat
-        self._provider_client = FaaSKeeperClient._providers[provider](
-            service_name, verbose
-        )
+        self._provider_client = FaaSKeeperClient._providers[provider](service_name, verbose)
         self._port = port
 
         if debug and verbose:
             logging.basicConfig(
                 level=logging.DEBUG,
-                format="[%(asctime)s] (%(name)s - %(filename)s(%(funcName)s"
-                ":%(lineno)s)) %(message)s",
+                format="[%(asctime)s] (%(name)s - %(filename)s(%(funcName)s" ":%(lineno)s)) %(message)s",
             )
         elif verbose:
             logging.basicConfig(
@@ -71,7 +68,7 @@ class FaaSKeeperClient:
     @property
     def session_id(self) -> Optional[str]:
         """
-        :returns: session id 
+        :returns: session id
         """
         return self._session_id
 
@@ -127,12 +124,7 @@ class FaaSKeeperClient:
         addr = f"{self._response_handler.address}:{self._response_handler.port}"
         future = Future()
         self._work_queue.add_request(
-            RegisterSession(
-                session_id=self._session_id,
-                source_addr=addr,
-                heartbeat=self._heartbeat != -1,
-            ),
-            future,
+            RegisterSession(session_id=self._session_id, source_addr=addr, heartbeat=self._heartbeat != -1,), future,
         )
         future.get()
         self._log.info(f"Registered session: {self._session_id}")
@@ -177,9 +169,7 @@ class FaaSKeeperClient:
             self._event_queue.close()
             self._response_handler.stop()
             self._work_thread.stop()
-            assert not (
-                self._response_handler.is_alive() or self._work_thread.is_alive()
-            )
+            assert not (self._response_handler.is_alive() or self._work_thread.is_alive())
             self._session_id = None
             self._work_queue = None
             self._event_queue = None
@@ -191,12 +181,7 @@ class FaaSKeeperClient:
 
     # FIXME: remove acl
     def create(
-        self,
-        path: str,
-        value: bytes = b"",
-        acl: str = None,
-        ephemeral: bool = False,
-        sequential: bool = False,
+        self, path: str, value: bytes = b"", acl: str = None, ephemeral: bool = False, sequential: bool = False,
     ) -> str:
         """Create new node synchronously.
 
@@ -211,12 +196,7 @@ class FaaSKeeperClient:
     # FIXME: remove acl
     # FIXME: Document exceptions
     def create_async(
-        self,
-        path: str,
-        value: bytes = b"",
-        acl: str = None,
-        ephemeral: bool = False,
-        sequential: bool = False,
+        self, path: str, value: bytes = b"", acl: str = None, ephemeral: bool = False, sequential: bool = False,
     ) -> Future:
         """Create new node in an asynchronous mode.
 
@@ -238,10 +218,7 @@ class FaaSKeeperClient:
 
         future = Future()
         self._work_queue.add_request(
-            CreateNode(
-                session_id=self._session_id, path=path, value=value, acl=0, flags=flags
-            ),
-            future,
+            CreateNode(session_id=self._session_id, path=path, value=value, acl=0, flags=flags), future,
         )
         return future
 
@@ -288,9 +265,7 @@ class FaaSKeeperClient:
 
     # FIXME: document exceptions
     # FIXME: conditonal updates based on user data
-    def set_data_async(
-        self, path: str, value: bytes = b"", version: int = -1
-    ) -> Future:
+    def set_data_async(self, path: str, value: bytes = b"", version: int = -1) -> Future:
         """Modify the user data in a node in an asynchronous mode.
 
         :param path: node path
@@ -305,10 +280,6 @@ class FaaSKeeperClient:
         FaaSKeeperClient._sanitize_path(path)
         future = Future()
         self._work_queue.add_request(
-            SetData(
-                session_id=self._session_id, path=path, value=value, version=version
-            ),
-            future,
+            SetData(session_id=self._session_id, path=path, value=value, version=version), future,
         )
         return future
-

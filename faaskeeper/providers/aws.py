@@ -32,10 +32,7 @@ class AWSClient(ProviderClient):
 
     @staticmethod
     def _convert_items(items: dict) -> dict:
-        return {
-            key: {AWSClient._dynamodb_type(value): AWSClient._dynamodb_val(value)}
-            for key, value in items.items()
-        }
+        return {key: {AWSClient._dynamodb_type(value): AWSClient._dynamodb_val(value)} for key, value in items.items()}
 
     def send_request(
         self, request_id: str, data: Dict[str, Union[str, bytes, int]],
@@ -48,11 +45,7 @@ class AWSClient(ProviderClient):
             self._dynamodb.put_item(
                 TableName=f"{self._service_name}-write-queue",
                 Item=AWSClient._convert_items(
-                    {
-                        **data,
-                        "key": f"self._service_name_{str(uuid.uuid4())[0:4]}",
-                        "timestamp": request_id,
-                    }
+                    {**data, "key": f"self._service_name_{str(uuid.uuid4())[0:4]}", "timestamp": request_id}
                 ),
             )
         except Exception as e:
@@ -79,12 +72,7 @@ class AWSClient(ProviderClient):
             self._dynamodb.put_item(
                 TableName=f"{self._service_name}-state",
                 Item=AWSClient._convert_items(
-                    {
-                        "type": session_id,
-                        "addr": source_addr,
-                        "ephemerals": [],
-                        "heartbeat": heartbeat,
-                    }
+                    {"type": session_id, "addr": source_addr, "ephemerals": [], "heartbeat": heartbeat}
                 ),
                 ReturnConsumedCapacity="TOTAL",
             )
