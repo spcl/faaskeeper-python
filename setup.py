@@ -12,6 +12,9 @@ setup(
     author='Marcin Copik',
     author_email='mcopik@gmail.com',
     description='FaaSKeeper Python client',
-    packages = ['faaskeeper', 'faaskeeper.providers']
+    packages = ['faaskeeper', 'faaskeeper.providers'],
+    package_data = {
+        'faaskeeper': ['py.typed'],
+    }
 )
 
