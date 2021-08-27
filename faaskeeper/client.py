@@ -37,6 +37,7 @@ class FaaSKeeperClient:
         self,
         provider: str,
         service_name: str,
+        region: str,
         port: int = -1,
         heartbeat: bool = True,
         verbose: bool = False,
@@ -44,10 +45,11 @@ class FaaSKeeperClient:
     ):
         self._client_id = str(uuid.uuid4())[0:8]
         self._service_name = service_name
+        self._region = region
         self._session_id: Optional[str] = None
         self._closing_down = False
         self._heartbeat = heartbeat
-        self._provider_client = FaaSKeeperClient._providers[provider](service_name, verbose)
+        self._provider_client = FaaSKeeperClient._providers[provider](service_name, region, verbose)
         self._port = port
 
         if debug and verbose:

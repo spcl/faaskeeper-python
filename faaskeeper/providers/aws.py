@@ -7,9 +7,9 @@ from faaskeeper.exceptions import AWSException
 
 
 class AWSClient(ProviderClient):
-    def __init__(self, service_name: str, verbose: bool):
-        super().__init__(service_name)
-        self._dynamodb = boto3.client("dynamodb")
+    def __init__(self, service_name: str, region: str, verbose: bool):
+        super().__init__(service_name, region)
+        self._dynamodb = boto3.client("dynamodb", region)
 
     @staticmethod
     def _dynamodb_type(val):

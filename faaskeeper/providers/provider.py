@@ -4,8 +4,9 @@ from faaskeeper.operations import DirectOperation, GetData, RegisterSession
 
 
 class ProviderClient(ABC):
-    def __init__(self, service_name: str):
+    def __init__(self, service_name: str, region: str):
         self._service_name = service_name
+        self._region = region
 
     @abstractmethod
     def get_data(self, path: str):
