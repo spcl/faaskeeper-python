@@ -39,6 +39,7 @@ class AWSClient(ProviderClient):
         # FIXME: handle failure
         try:
             import uuid
+
             # FIXME: check return value
             self._dynamodb.put_item(
                 TableName=f"{self._service_name}-write-queue",
@@ -47,7 +48,7 @@ class AWSClient(ProviderClient):
                 ),
             )
         except Exception as e:
-            raise AWSException(f"Failure on AWS client: {str(e)}")
+            raise AWSException(f"Failure on AWS client on DynamoDB table {self._service_name}-write-queue: {str(e)}")
 
     def get_data(self, path: str) -> Tuple[bytes, int]:
 
@@ -61,7 +62,7 @@ class AWSClient(ProviderClient):
             )
             return (ret["Item"]["data"]["B"], ret["Item"]["version"]["N"])
         except Exception as e:
-            raise AWSException(f"Failure on AWS client: {str(e)}")
+            raise AWSException(f"Failure on AWS client on DynamoDB table {self._service_name}-write-queue: {str(e)}")
 
     def register_session(self, session_id: str, source_addr: str, heartbeat: bool):
 
@@ -71,10 +72,10 @@ class AWSClient(ProviderClient):
             self._dynamodb.put_item(
                 TableName=f"{self._service_name}-state",
                 Item=AWSClient._convert_items(
-                    #{"type": session_id, "addr": source_addr, "ephemerals": [], "heartbeat": heartbeat}
+                    # {"type": session_id, "addr": source_addr, "ephemerals": [], "heartbeat": heartbeat}
                     {"type": session_id, "addr": source_addr, "ephemerals": []}
                 ),
                 ReturnConsumedCapacity="TOTAL",
             )
         except Exception as e:
-            raise AWSException(f"Failure on AWS client: {str(e)}")
+            raise AWSException(f"Failure on AWS client on DynamoDB table {self._service_name}-write-queue: {str(e)}")
