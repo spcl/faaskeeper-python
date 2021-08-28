@@ -89,6 +89,13 @@ class FaaSKeeperClient:
         if path.endswith("/"):
             raise MalformedInputException("Path must not end with /")
 
+    def __enter__(self):
+        self.start()
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.stop()
+
     # FIXME: exception for incorrect connection
     def start(self) -> str:
         """Establish a connection to FaaSKeeper and start a session.
