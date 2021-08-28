@@ -51,8 +51,9 @@ class Node:
     def serialize(self) -> dict:
         assert self._created_version
         assert self._modified_version
+        data_dict = {"data": str(self._data)} if self._data else {}
         return {
             "path": self._path,
-            "data": str(self._data),
+            **data_dict,
             "version": {"created": self._created_version.serialize(), "modified": self._modified_version.serialize()},
         }

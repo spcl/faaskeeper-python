@@ -182,10 +182,7 @@ class FaaSKeeperClient:
 
         return "closed"
 
-    # FIXME: remove acl
-    def create(
-        self, path: str, value: bytes = b"", acl: str = None, ephemeral: bool = False, sequential: bool = False,
-    ) -> str:
+    def create(self, path: str, value: bytes = b"", ephemeral: bool = False, sequential: bool = False,) -> Node:
         """Create new node synchronously.
 
         :param path: node path
@@ -194,13 +191,10 @@ class FaaSKeeperClient:
         :param sequential: true when this node should have sequential path
         :returns: the path of new node
         """
-        return self.create_async(path, value, acl, ephemeral, sequential).get()
+        return self.create_async(path, value, ephemeral, sequential).get()
 
-    # FIXME: remove acl
     # FIXME: Document exceptions
-    def create_async(
-        self, path: str, value: bytes = b"", acl: str = None, ephemeral: bool = False, sequential: bool = False,
-    ) -> Future:
+    def create_async(self, path: str, value: bytes = b"", ephemeral: bool = False, sequential: bool = False,) -> Future:
         """Create new node in an asynchronous mode.
 
         :param path: node path
@@ -221,7 +215,7 @@ class FaaSKeeperClient:
 
         future = Future()
         self._work_queue.add_request(
-            CreateNode(session_id=self._session_id, path=path, value=value, acl=0, flags=flags), future,
+            CreateNode(session_id=self._session_id, path=path, value=value, flags=flags), future,
         )
         return future
 

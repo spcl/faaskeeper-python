@@ -58,4 +58,7 @@ class Version:
         return self._epoch
 
     def serialize(self) -> dict:
-        return {"system": self._system.serialize(), "epoch": self._epoch.serialize()}
+        if self._system and self._epoch:
+            return {"system": self._system.serialize(), "epoch": self._epoch.serialize()}
+        else:
+            return {"system": "unknown", "epoch": "unknown"}

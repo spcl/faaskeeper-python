@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 
+from faaskeeper.node import Node
 from faaskeeper.threading import Future
 from faaskeeper.exceptions import (
     FaaSKeeperException,
@@ -71,7 +72,7 @@ class DirectOperation(Operation):
 
 
 class CreateNode(RequestOperation):
-    def __init__(self, session_id: str, path: str, value: bytes, acl: int, flags: int):
+    def __init__(self, session_id: str, path: str, value: bytes, flags: int):
         super().__init__(session_id, path)
         self._value = value
 
@@ -87,7 +88,7 @@ class CreateNode(RequestOperation):
 
     def process_result(self, result: dict, fut: Future):
         if result["status"] == "success":
-            fut.set_result(result["path"])
+            fut.set_result(Node(path=result["path"]))
         else:
             if result["reason"] == "node_exists":
                 fut.set_exception(NodeExistsException(result["path"]))
