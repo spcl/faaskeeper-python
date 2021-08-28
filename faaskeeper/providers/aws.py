@@ -2,10 +2,10 @@ from typing import Dict, Union
 
 import boto3
 
-from faaskeeper.node import Node
-from faaskeeper.version import Version, SystemCounter, EpochCounter
-from faaskeeper.providers.provider import ProviderClient
 from faaskeeper.exceptions import AWSException
+from faaskeeper.node import Node
+from faaskeeper.providers.provider import ProviderClient
+from faaskeeper.version import EpochCounter, SystemCounter, Version
 
 
 class AWSClient(ProviderClient):

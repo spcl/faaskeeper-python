@@ -1,13 +1,13 @@
 from abc import ABC, abstractmethod
 
-from faaskeeper.node import Node
-from faaskeeper.threading import Future
 from faaskeeper.exceptions import (
+    BadVersionError,
     FaaSKeeperException,
     NodeExistsException,
-    BadVersionError,
     SessionExpiredException,
 )
+from faaskeeper.node import Node
+from faaskeeper.threading import Future
 
 
 class Operation(ABC):

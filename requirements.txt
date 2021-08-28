@@ -11,3 +11,4 @@ boto3-stubs[lambda]
 pytest
 sphinx
 sphinx-rtd-theme
+isort

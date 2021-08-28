@@ -2,22 +2,22 @@ import logging
 import uuid
 from typing import Optional
 
-from faaskeeper.node import Node
-from faaskeeper.queue import WorkQueue, EventQueue, ResponseListener, WorkerThread
-from faaskeeper.operations import (
-    CreateNode,
-    GetData,
-    SetData,
-    RegisterSession,
-    DeregisterSession,
-)
-from faaskeeper.providers.aws import AWSClient
-from faaskeeper.threading import Future
 from faaskeeper.exceptions import (
     MalformedInputException,
     SessionExpiredException,
     TimeoutException,
 )
+from faaskeeper.node import Node
+from faaskeeper.operations import (
+    CreateNode,
+    DeregisterSession,
+    GetData,
+    RegisterSession,
+    SetData,
+)
+from faaskeeper.providers.aws import AWSClient
+from faaskeeper.queue import EventQueue, ResponseListener, WorkerThread, WorkQueue
+from faaskeeper.threading import Future
 
 
 class FaaSKeeperClient:

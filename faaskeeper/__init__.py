@@ -1,10 +1,10 @@
 from .client import FaaSKeeperClient  # noqa
-from .threading import Future  # noqa
 from .exceptions import (  # noqa
+    BadVersionError,
+    NodeExistsException,
     ProviderException,
     SessionClosingException,
     SessionExpiredException,
     TimeoutException,
-    NodeExistsException,
-    BadVersionError,
 )
+from .threading import Future  # noqa

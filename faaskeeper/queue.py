@@ -3,18 +3,18 @@ import logging
 import socket
 import time
 import urllib.request
-from threading import Thread, Event
 from collections import deque
+from threading import Event, Thread
 from typing import Callable, Deque, Dict, Tuple
 
-from faaskeeper.operations import Operation
-from faaskeeper.threading import Future
 from faaskeeper.exceptions import (
     ProviderException,
-    TimeoutException,
     SessionClosingException,
+    TimeoutException,
 )
+from faaskeeper.operations import Operation
 from faaskeeper.providers.provider import ProviderClient
+from faaskeeper.threading import Future
 
 
 def wait_until(timeout: float, interval: float, condition, *args):
