@@ -2,6 +2,7 @@ import logging
 import uuid
 from typing import Optional
 
+from faaskeeper.node import Node
 from faaskeeper.queue import WorkQueue, EventQueue, ResponseListener, WorkerThread
 from faaskeeper.operations import (
     CreateNode,
@@ -227,7 +228,7 @@ class FaaSKeeperClient:
     # FIXME: add watch
     # FIXME: implement node stats
     # FIXME: document exceptions
-    def get_data(self, path: str) -> bytes:
+    def get_data(self, path: str) -> Node:
         """Retrieve user data from a node.
 
         :param path: node path
