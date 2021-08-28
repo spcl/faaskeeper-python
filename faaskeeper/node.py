@@ -49,11 +49,14 @@ class Node:
         self._modified_version = val
 
     def serialize(self) -> dict:
-        assert self._created_version
-        assert self._modified_version
         data_dict = {"data": str(self._data)} if self._data else {}
-        return {
-            "path": self._path,
-            **data_dict,
-            "version": {"created": self._created_version.serialize(), "modified": self._modified_version.serialize()},
-        }
+        if self._created_version and self._modified_version:
+            version_dict = {
+                "version": {
+                    "created": self._created_version.serialize(),
+                    "modified": self._modified_version.serialize(),
+                }
+            }
+        else:
+            version_dict = {}
+        return {"path": self._path, **data_dict, **version_dict}
