@@ -133,6 +133,8 @@ class ResponseListener(Thread):
         self._work_event.set()
 
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self._socket(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self._socket(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
         self._socket.bind(("", port if port != -1 else 0))
 
         req = urllib.request.urlopen("https://checkip.amazonaws.com")
