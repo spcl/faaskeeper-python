@@ -16,7 +16,13 @@ from faaskeeper.operations import (
     SetData,
 )
 from faaskeeper.providers.aws import AWSClient
-from faaskeeper.queue import EventQueue, ResponseListener, WorkerThread, WorkQueue
+from faaskeeper.queue import (
+    EventQueue,
+    ResponseListener,
+    SorterThread,
+    SubmitterThread,
+    WorkQueue,
+)
 from faaskeeper.threading import Future
 
 
@@ -89,13 +95,6 @@ class FaaSKeeperClient:
         if path.endswith("/"):
             raise MalformedInputException("Path must not end with /")
 
-    def __enter__(self):
-        self.start()
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        self.stop()
-
     # FIXME: exception for incorrect connection
     def start(self) -> str:
         """Establish a connection to FaaSKeeper and start a session.
@@ -123,14 +122,10 @@ class FaaSKeeperClient:
         self._work_queue = WorkQueue()
         self._event_queue = EventQueue()
         self._response_handler = ResponseListener(self._event_queue, self._port)
-        self._work_thread = WorkerThread(
-            self._session_id,
-            self._service_name,
-            self._provider_client,
-            self._work_queue,
-            self._response_handler,
-            self._event_queue,
+        self._work_thread = SubmitterThread(
+            self._session_id, self._provider_client, self._work_queue, self._event_queue, self._response_handler
         )
+        self._sorter_thread = SorterThread(self._event_queue)
         addr = f"{self._response_handler.address}:{self._response_handler.port}"
         future = Future()
         self._work_queue.add_request(
@@ -179,12 +174,14 @@ class FaaSKeeperClient:
             self._event_queue.close()
             self._response_handler.stop()
             self._work_thread.stop()
+            self._sorter_thread.stop()
             assert not (self._response_handler.is_alive() or self._work_thread.is_alive())
             self._session_id = None
             self._work_queue = None
             self._event_queue = None
             self._response_handler = None
             self._work_thread = None
+            self._sorter_thread = None
             self._closing_down = False
 
         return "closed"

@@ -3,15 +3,18 @@ import logging
 import socket
 import time
 import urllib.request
-from collections import deque
+from datetime import datetime
+from enum import Enum
+from queue import Empty, Queue
 from threading import Event, Thread
-from typing import Callable, Deque, Dict, Tuple
+from typing import Optional, Tuple, Union
 
 from faaskeeper.exceptions import (
     ProviderException,
     SessionClosingException,
     TimeoutException,
 )
+from faaskeeper.node import Node
 from faaskeeper.operations import Operation
 from faaskeeper.providers.provider import ProviderClient
 from faaskeeper.threading import Future
@@ -30,83 +33,93 @@ def wait_until(timeout: float, interval: float, condition, *args):
         time.sleep(interval)
 
 
-class WorkQueue:
-    """The queue is used to add new requets passed to the FK service.
-    All requests are processed in the FIFO order.
-    The queue is served by a single thread processing requests.
+"""
+    Architecture of the receive queue systems on the client.
+    We must handle three types of events:
+    - direct results of reading from the storage.
+    - results of operations returned from serverless workers.
+    - watch events delivered.
+
+    The event queue is not necessarily ordered and is used to to transmit results to the
+    ordering thread.
+
+    The submission queue is FIFO and is used to transmit requests to the submitter thread.
+"""
+
+
+class EventQueue:
+    class EventType(Enum):
+        CLOUD_INDIRECT_RESULT = 0
+        CLOUD_DIRECT_RESULT = 1
+        CLOUD_EXPECTED_RESULT = 2
+
+    """
+        The queue is used to handle replies and watch notifications from the service.
+        Its second responsibility is ensuring that the results are correctly ordered.
+
+        The queue is served by a single thread processing events.
+        In the current implementation, callbacks block the only thread.
     """
 
     def __init__(self):
-        self._request_count = 0
-        self._queue: Deque[Tuple[int, Operation, Future]] = deque()
-        self._wait_event = Event()
+        self._queue = Queue()
         self._closing = False
+
+    def add_expected_result(self, request_id: int, request: Operation, future: Future):
+        if self._closing:
+            raise SessionClosingException()
+
+        self._queue.put((EventQueue.EventType.CLOUD_EXPECTED_RESULT, request_id, request, future))
+
+    def add_direct_result(self, request_id: int, result: Union[Node, Exception], future: Future):
+        if self._closing:
+            raise SessionClosingException()
+
+        self._queue.put((EventQueue.EventType.CLOUD_DIRECT_RESULT, request_id, result, future))
+
+    def add_indirect_result(self, result: dict):
+        if self._closing:
+            raise SessionClosingException()
+
+        self._queue.put((EventQueue.EventType.CLOUD_INDIRECT_RESULT, result))
+
+    def get(self) -> Optional[Tuple]:
+        try:
+            return self._queue.get(block=True, timeout=0.5)
+        except Empty:
+            return None
+
+    def close(self):
+        self._closing = True
+
+
+class WorkQueue:
+    def __init__(self):
+        self._queue = Queue()
+        self._closing = False
+        self._request_count = 0
 
     def add_request(self, op: Operation, fut: Future):
         if self._closing:
             raise SessionClosingException()
-        self._queue.append((self._request_count, op, fut))
+
+        self._queue.put((self._request_count, op, fut))
         self._request_count += 1
-        # only if queue was empty
-        if len(self._queue) == 1:
-            self._wait_event.set()
-            self._wait_event.clear()
 
-    def empty(self) -> bool:
-        return len(self._queue) == 0
-
-    def pop(self) -> Tuple[int, Operation, Future]:
-        return self._queue.popleft()
+    def get(self) -> Optional[Tuple[int, Operation, Future]]:
+        try:
+            return self._queue.get(block=True, timeout=0.5)
+        except Empty:
+            return None
 
     def close(self):
         self._closing = True
 
     def wait_close(self, timeout: float = -1):
         if timeout > 0:
-            wait_until(timeout, 0.1, self.empty)
-            if not self.empty():
+            wait_until(timeout, 0.1, self._queue.empty)
+            if not self._queue.empty():
                 raise TimeoutException(timeout)
-
-
-class EventQueue:
-    """The queue is used to handle replies and watch notifications from the service.
-    Its second responsibility is ensuring that the results are correctly ordered.
-
-    The queue is served by a single thread processing events.
-    In the current implementation, callbacks block the only thread.
-    """
-
-    def __init__(self):
-        # self._queue: Deque[Tuple[int, dict]] = deque()
-        self._outstanding_waits: Dict[int, Callable[[dict], None]] = {}
-        self._closing = False
-
-    def add_callback(self, event_id: int, callback: Callable[[dict], None]):
-        self._outstanding_waits[event_id] = callback
-
-    def add_event(self, event: dict):
-        if self._closing:
-            raise SessionClosingException()
-
-        event_id = int(event["event"].split("-")[1])
-        # self._queue.append((event_id, event))
-        callback = self._outstanding_waits.get(event_id)
-        if callback:
-            del self._outstanding_waits[event_id]
-            callback(event)
-
-    # def empty(self) -> bool:
-    #    return len(self._queue) == 0
-
-    def close(self):
-        self._closing = True
-
-    # def wait_close(self, timeout: int = -1):
-    #    return
-    #    if timeout > 0:
-    #        wait_until(self.empty, timeout)
-    #        if not self.empty():
-    #            raise TimeoutException(timeout)
 
 
 class ResponseListener(Thread):
@@ -155,13 +168,13 @@ class ResponseListener(Thread):
                 conn, addr = self._socket.accept()
             except socket.timeout:
                 pass
-            except Exception:
-                raise
+            except Exception as e:
+                raise e
             else:
                 self._log.info(f"Connected with {addr}")
                 data = json.loads(conn.recv(1024).decode())
                 self._log.info(f"Received message: {data}")
-                self._event_queue.add_event(data)
+                self._event_queue.add_indirect_result(data)
         self._log.info(f"Close response listener thread on {self._public_addr}:{self._port}")
         self._socket.close()
         self._work_event.set()
@@ -178,29 +191,26 @@ class ResponseListener(Thread):
         self._work_event.wait()
 
 
-# FIXME: add sesssion state - id, name, config
-# FIXME: do we need service name?
-# FIXME: is the current implementation good? Make sure that ordering is implemented while we don't delay unnecessarily
-class WorkerThread(Thread):
-    """The thread polls requests from work queue, submits them, and waits for replies.
-    After calling `run`, the thread runs in the background until `stop` is called.
+class SubmitterThread(Thread):
 
-    :param session_id: ID of active session
-    :param service_name: name of FK deployment in cloud
+    """
+        The thread polls requests from work queue and submits them.
+        After calling `run`, the thread runs in the background until `stop` is called.
+
+        :param session_id: ID of active session
+        :param service_name: name of FK deployment in cloud
     """
 
     def __init__(
         self,
         session_id: str,
-        service_name: str,
         provider_client: ProviderClient,
         queue: WorkQueue,
-        response_handler: ResponseListener,
         event_queue: EventQueue,
+        response_handler: ResponseListener,
     ):
         super().__init__(daemon=True)
         self._session_id = session_id
-        self._service_name = service_name
         self._queue = queue
         self._event_queue = event_queue
         self._provider_client = provider_client
@@ -222,53 +232,134 @@ class WorkerThread(Thread):
     # FIXME: batching of write requests
     def run(self):
 
-        event = Event()
-        result: dict = {}
+        self._log.info(f"Begin submission worker thread.")
 
-        def callback(response):
-            nonlocal event, result
-            event.set()
-            event.clear()
-            result = response
-
-        self._log.info(f"Begin queue worker thread.")
         while self._work_event.is_set():
 
-            if not self._queue.empty():
-                req_id, request, future = self._queue.pop()
+            submission = self._queue.get()
+            if not submission:
+                continue
 
-                """
-                    Send the request to execution to the underlying
-                    cloud service, register yourself with an event queue
-                    and wait until response arrives.
-                """
-                self._log.info(f"Begin executing operation: {request.name}")
+            req_id, request, future = submission
+            try:
                 if request.is_cloud_request():
-                    try:
-                        self._event_queue.add_callback(req_id, callback)
-                        self._provider_client.send_request(
-                            request_id=f"{self._session_id}-{req_id}",
-                            data={
-                                **request.generate_request(),
-                                "sourceIP": self._response_handler.address,
-                                "sourcePort": self._response_handler.port,
-                            },
-                        )
-                        if not event.wait(5.0):
-                            future.set_exception(TimeoutException(5.0))
-                            continue
-                        request.process_result(result, future)
-                    except ProviderException as e:
-                        future.set_exception(e)
+                    """
+                        Send the request to execution to the underlying cloud service.
+                    """
+                    self._log.info(f"Begin executing operation: {request.name}")
+                    self._event_queue.add_expected_result(req_id, request, future)
+                    self._provider_client.send_request(
+                        request_id=f"{self._session_id}-{req_id}",
+                        data={
+                            **request.generate_request(),
+                            "sourceIP": self._response_handler.address,
+                            "sourcePort": self._response_handler.port,
+                        },
+                    )
                 else:
+                    # FIXME launch on a pool - then it becomes expected result as well
                     try:
                         res = self._provider_client.execute_request(request)
-                        future.set_result(res)
+                        self._event_queue.add_direct_result(req_id, res, future)
                     except Exception as e:
-                        future.set_exception(e)
+                        self._event_queue.add_direct_result(req_id, e, future)
+            except ProviderException as e:
+                self._event_queue.add_direct_result(req_id, e, future)
+            except Exception as e:
+                self._event_queue.add_direct_result(req_id, e, future)
                 self._log.info(f"Finish executing operation: {request.name}")
 
+        self._log.info(f"Close queue worker thread.")
+        self._work_event.set()
+
+
+class SorterThread(Thread):
+    """
+        The thread polls requests from the event queue,
+        and sorts them while releasing results to the user.
+        After calling `run`, the thread runs in the background until `stop` is called.
+
+        :param session_id: ID of active session
+        :param service_name: name of FK deployment in cloud
+    """
+
+    def __init__(self, queue: EventQueue):
+        super().__init__(daemon=True)
+        self._queue = queue
+        self._log = logging.getLogger("SorterThread")
+        self._work_event = Event()
+        self._work_event.set()
+
+        self.start()
+
+    def stop(self):
+        """
+            Sets stop event and wait until run method clears it.
+            This certifies that thread has finished.
+        """
+        self._work_event.clear()
+        self._work_event.wait()
+
+    def _check_timeout(self, futures: list):
+
+        cur_timestamp = datetime.now().timestamp()
+        i = 0
+        while i < len(futures):
+            fut = futures[i]
+            fut_timestamp = fut[-1]
+            # timeout!
+            if cur_timestamp - fut_timestamp >= 5.0:
+                fut[2].set_exception(TimeoutException(5.0))
+                # remove the element from the list
+                futures.pop(0)
+                i += 1
             else:
-                self._queue._wait_event.wait(1)
+                break
+
+    def run(self):
+
+        self._log.info(f"Begin sorter thread.")
+
+        futures = []
+        #results = []
+
+        while self._work_event.is_set():
+
+            processed_result = False
+            submission = self._queue.get()
+
+            # FIXME: add timestamps to find missing events
+            # if not event.wait(5.0):
+            if not submission:
+                self._check_timeout(futures)
+                continue
+
+            # we received result
+            if submission[0] == EventQueue.EventType.CLOUD_EXPECTED_RESULT:
+                futures.append((*submission[1:], datetime.now().timestamp()))
+            # we have a direct result
+            elif submission[0] == EventQueue.EventType.CLOUD_DIRECT_RESULT:
+                req_id, result, future = submission[1:]
+                # FIXME: enforce ordering
+                if isinstance(result, Exception):
+                    future.set_exception(result)
+                else:
+                    future.set_result(result)
+                processed_result = True
+            elif submission[0] == EventQueue.EventType.CLOUD_INDIRECT_RESULT:
+
+                result = submission[1]
+                # event format is: {session_id}-{local_idx}
+                req_id = int(result["event"].split("-")[1])
+                # FIXME: enforce ordering
+                assert futures[0][0] == req_id
+                req_id, request, future, _ = futures.pop(0)
+                request.process_result(result, future)
+                processed_result = True
+
+            # if we processed result, then timeout could not have happend
+            if not processed_result:
+                self._check_timeout(futures)
+
         self._log.info(f"Close queue worker thread.")
         self._work_event.set()
