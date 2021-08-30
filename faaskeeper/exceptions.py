@@ -59,6 +59,14 @@ class NodeExistsException(ZooKeeperException):
         super().__init__(f"Node {path} exists!")
 
 
+class NodeDoesntExistException(ZooKeeperException):
+    """Describes failed node read operation.
+    """
+
+    def __init__(self, path: str):
+        super().__init__(f"Node {path} does not exist!")
+
+
 class BadVersionError(ZooKeeperException):
     """Describes unsuccesful update operation.
     """
