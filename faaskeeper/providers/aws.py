@@ -1,4 +1,3 @@
-import base64
 import struct
 from abc import ABC, abstractmethod
 from typing import Dict, List, Union, cast
@@ -125,7 +124,7 @@ class DynamoReader(DataReader):
                 EpochCounter(set(self._decode_schema(ret["Item"]["mFxidEpoch"]))),
             )
             n.data = ret["Item"]["data"]["B"]
-            #n.data = base64.b64decode(ret["Item"]["data"]["B"])
+            # n.data = base64.b64decode(ret["Item"]["data"]["B"])
 
             return n
         except Exception as e:
