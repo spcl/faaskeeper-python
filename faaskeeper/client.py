@@ -2,6 +2,7 @@ import logging
 import uuid
 from typing import Optional
 
+from faaskeeper.config import CloudProvider, Config
 from faaskeeper.exceptions import (
     MalformedInputException,
     SessionExpiredException,
@@ -38,25 +39,17 @@ class FaaSKeeperClient:
     :param debug: full debug output of all operations
     """
 
-    _providers = {"aws": AWSClient}
+    _providers = {CloudProvider.AWS: AWSClient}
 
     def __init__(
-        self,
-        provider: str,
-        service_name: str,
-        region: str,
-        port: int = -1,
-        heartbeat: bool = True,
-        verbose: bool = False,
-        debug: bool = False,
+        self, cfg: Config, port: int = -1, heartbeat: bool = True, verbose: bool = False, debug: bool = False,
     ):
         self._client_id = str(uuid.uuid4())[0:8]
-        self._service_name = service_name
-        self._region = region
+        self._config = cfg
         self._session_id: Optional[str] = None
         self._closing_down = False
         self._heartbeat = heartbeat
-        self._provider_client = FaaSKeeperClient._providers[provider](service_name, region, verbose)
+        self._provider_client = FaaSKeeperClient._providers[cfg.cloud_provider](cfg)
         self._port = port
 
         if debug and verbose:

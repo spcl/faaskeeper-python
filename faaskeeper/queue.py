@@ -321,7 +321,7 @@ class SorterThread(Thread):
         self._log.info(f"Begin sorter thread.")
 
         futures = []
-        #results = []
+        # results = []
 
         while self._work_event.is_set():
 

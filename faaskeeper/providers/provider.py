@@ -1,12 +1,12 @@
 from abc import ABC, abstractmethod
 
+from faaskeeper.config import Config
 from faaskeeper.operations import DirectOperation, GetData, RegisterSession
 
 
 class ProviderClient(ABC):
-    def __init__(self, service_name: str, region: str):
-        self._service_name = service_name
-        self._region = region
+    def __init__(self, cfg: Config):
+        self._config = cfg
 
     @abstractmethod
     def get_data(self, path: str):

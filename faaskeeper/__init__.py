@@ -1,4 +1,5 @@
 from .client import FaaSKeeperClient  # noqa
+from .config import StorageType  # noqa
 from .exceptions import (  # noqa
     BadVersionError,
     NodeExistsException,

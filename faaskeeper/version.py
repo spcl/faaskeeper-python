@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import List, Set
 
 
 class SystemCounter:
@@ -8,14 +8,14 @@ class SystemCounter:
         Each one corresponds to the most recent modification on a parallel writer.
     """
 
-    def __init__(self, version: Tuple[int]):
+    def __init__(self, version: List[int]):
         self._version = version
 
     @property
     def version(self):
         return self._version
 
-    def serialize(self) -> Tuple[int]:
+    def serialize(self) -> List[int]:
         return self._version
 
 
@@ -26,15 +26,16 @@ class EpochCounter:
         Each one corresponds to a watch invocation.
     """
 
-    def __init__(self, version: Tuple[int]):
+    def __init__(self, version: Set[int]):
         self._version = version
 
     @property
-    def version(self) -> Tuple[int]:
+    def version(self) -> Set[int]:
         return self._version
 
-    def serialize(self) -> Tuple[int]:
-        return self._version
+    # JSON cannot accept a set
+    def serialize(self) -> List[int]:
+        return list(self._version)
 
 
 class Version:
