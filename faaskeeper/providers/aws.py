@@ -126,7 +126,7 @@ class DynamoReader(DataReader):
 
             return n
         except Exception as e:
-            raise AWSException(f"Failure on AWS client on DynamoDB table {self._config.deployment_name}-data: {str(e)}")
+            raise AWSException(f"Failure on AWS client on DynamoDB table faaskeeper-{self._config.deployment_name}-data: {str(e)}")
 
 
 class AWSClient(ProviderClient):
@@ -182,7 +182,7 @@ class AWSClient(ProviderClient):
             )
         except Exception as e:
             raise AWSException(
-                f"Failure on AWS client on DynamoDB table {self._config.deployment_name}-write-queue: {str(e)}"
+                f"Failure on AWS client on DynamoDB table faaskeeper-{self._config.deployment_name}-write-queue: {str(e)}"
             )
 
     def get_data(self, path: str) -> Node:
@@ -203,5 +203,5 @@ class AWSClient(ProviderClient):
             )
         except Exception as e:
             raise AWSException(
-                f"Failure on AWS client on DynamoDB table {self._config.deployment_name}-write-queue: {str(e)}"
+                f"Failure on AWS client on DynamoDB table faaskeeper-{self._config.deployment_name}-write-queue: {str(e)}"
             )
