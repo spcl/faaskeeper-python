@@ -126,7 +126,7 @@ class DynamoReader(DataReader):
 
             return n
         except Exception as e:
-            raise AWSException(f"Failure on AWS client on DynamoDB table faaskeeper-{self._config.deployment_name}-data: {str(e)}")
+            raise AWSException(f"Failure on AWS client on DynamoDB table {self._config.deployment_name}-data: {str(e)}")
 
 
 class AWSClient(ProviderClient):
@@ -182,7 +182,7 @@ class AWSClient(ProviderClient):
             )
         except Exception as e:
             raise AWSException(
-                f"Failure on AWS client on DynamoDB table faaskeeper-{self._config.deployment_name}-write-queue: {str(e)}"
+                f"Failure on AWS client on DynamoDB table {self._config.deployment_name}-write-queue: {str(e)}"
             )
 
     def get_data(self, path: str) -> Node:
@@ -194,14 +194,13 @@ class AWSClient(ProviderClient):
         # FIXME: fix heartbeat - it should be a frequency, not bool
         try:
             self._dynamodb.put_item(
-                TableName=f"faaskeeper-{self._config.deployment_name}-state",
+                TableName=f"faaskeeper-{self._config.deployment_name}-users",
                 Item=AWSClient._convert_items(
-                    # {"type": session_id, "addr": source_addr, "ephemerals": [], "heartbeat": heartbeat}
-                    {"key": session_id, "addr": source_addr, "ephemerals": []}
+                    {"user": session_id, "addr": source_addr, "ephemerals": []}
                 ),
                 ReturnConsumedCapacity="TOTAL",
             )
         except Exception as e:
             raise AWSException(
-                f"Failure on AWS client on DynamoDB table faaskeeper-{self._config.deployment_name}-write-queue: {str(e)}"
+                f"Failure on AWS client on DynamoDB table {self._config.deployment_name}-write-queue: {str(e)}"
             )
