@@ -72,7 +72,9 @@ class S3Reader(DataReader):
         except self._s3.exceptions.NoSuchKey:
             raise NodeDoesntExistException(path)
         except Exception as e:
-            raise AWSException(f"Failure on AWS client on S3 bucket {self._config.deployment_name}-data: {str(e)}")
+            raise AWSException(
+                f"Failure on AWS client on S3 bucket faaskeeper-{self._config.deployment_name}-data: {str(e)}"
+            )
 
 
 class DynamoReader(DataReader):
@@ -126,7 +128,9 @@ class DynamoReader(DataReader):
 
             return n
         except Exception as e:
-            raise AWSException(f"Failure on AWS client on DynamoDB table {self._config.deployment_name}-data: {str(e)}")
+            raise AWSException(
+                f"Failure on AWS client on DynamoDB table faaskeeper-{self._config.deployment_name}-data: {str(e)}"
+            )
 
 
 class AWSClient(ProviderClient):
@@ -182,7 +186,8 @@ class AWSClient(ProviderClient):
             )
         except Exception as e:
             raise AWSException(
-                f"Failure on AWS client on DynamoDB table {self._config.deployment_name}-write-queue: {str(e)}"
+                f"Failure on AWS client on DynamoDB table "
+                f"faaskeeper-{self._config.deployment_name}-write-queue: {str(e)}"
             )
 
     def get_data(self, path: str) -> Node:
@@ -195,12 +200,11 @@ class AWSClient(ProviderClient):
         try:
             self._dynamodb.put_item(
                 TableName=f"faaskeeper-{self._config.deployment_name}-users",
-                Item=AWSClient._convert_items(
-                    {"user": session_id, "addr": source_addr, "ephemerals": []}
-                ),
+                Item=AWSClient._convert_items({"user": session_id, "addr": source_addr, "ephemerals": []}),
                 ReturnConsumedCapacity="TOTAL",
             )
         except Exception as e:
             raise AWSException(
-                f"Failure on AWS client on DynamoDB table {self._config.deployment_name}-write-queue: {str(e)}"
+                f"Failure on AWS client on DynamoDB table "
+                f"faaskeeper-{self._config.deployment_name}-write-queue: {str(e)}"
             )
