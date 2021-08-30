@@ -124,7 +124,8 @@ class DynamoReader(DataReader):
                 SystemCounter(self._decode_schema(ret["Item"]["mFxidSys"])),
                 EpochCounter(set(self._decode_schema(ret["Item"]["mFxidEpoch"]))),
             )
-            n.data = base64.b64decode(ret["Item"]["data"]["B"])
+            n.data = ret["Item"]["data"]["B"]
+            #n.data = base64.b64decode(ret["Item"]["data"]["B"])
 
             return n
         except Exception as e:
