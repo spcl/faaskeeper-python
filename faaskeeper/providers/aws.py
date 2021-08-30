@@ -197,7 +197,7 @@ class AWSClient(ProviderClient):
                 TableName=f"faaskeeper-{self._config.deployment_name}-state",
                 Item=AWSClient._convert_items(
                     # {"type": session_id, "addr": source_addr, "ephemerals": [], "heartbeat": heartbeat}
-                    {"user": session_id, "addr": source_addr, "ephemerals": []}
+                    {"key": session_id, "addr": source_addr, "ephemerals": []}
                 ),
                 ReturnConsumedCapacity="TOTAL",
             )
