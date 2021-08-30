@@ -23,7 +23,7 @@ class Node:
 
     @property
     def data(self) -> bytes:
-        assert self._data
+        assert self._data is not None
         return self._data
 
     @data.setter
@@ -32,7 +32,7 @@ class Node:
 
     @property
     def created(self) -> Version:
-        assert self._created_version
+        assert self._created_version is not None
         return self._created_version
 
     @created.setter
@@ -41,7 +41,7 @@ class Node:
 
     @property
     def modified(self) -> Version:
-        assert self._modified_version
+        assert self._modified_version is not None
         return self._modified_version
 
     @modified.setter
