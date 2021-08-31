@@ -123,7 +123,9 @@ class SetData(RequestOperation):
 
     def process_result(self, result: dict, fut: Future):
         if result["status"] == "success":
-            fut.set_result(Node(path=result["path"]))
+            n = Node(path=result["path"])
+            n.modified = Version(SystemCounter.from_raw_data(result["modified_system_counter"]), None)
+            fut.set_result(n)
         else:
             if result["reason"] == "update_failure":
                 fut.set_exception(BadVersionError(self._version))
