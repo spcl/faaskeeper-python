@@ -1,3 +1,4 @@
+from functools import total_ordering
 from typing import List, Optional, Set
 
 
@@ -26,6 +27,7 @@ class AWSDecoder:
         return [int(x) for x in res]
 
 
+@total_ordering
 class SystemCounter:
 
     """
@@ -36,11 +38,19 @@ class SystemCounter:
         The former is useful when we don't want to perform conversions, e.g.,
         we read DynamoDB structure with counter and use it when writing to
         DynamoDB table with storage.
+
+        We implement comparison and inequality operators to compare counters.
     """
 
     def __init__(self, provider_data: Optional[dict], version: Optional[List[int]]):
         self._provider_data = provider_data
         self._version = version
+        self._sum = 0
+
+    def _compute_sum(self):
+        if self._sum == 0:
+            self._sum = sum(self.serialize())
+        return self._sum
 
     @staticmethod
     def from_provider_schema(provider_data: dict):
@@ -54,6 +64,16 @@ class SystemCounter:
     def version(self) -> dict:
         assert self._provider_data
         return self._provider_data
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, SystemCounter):
+            return NotImplemented
+        return self._compute_sum() == other._compute_sum()
+
+    def __lt__(self, other: object) -> bool:
+        if not isinstance(other, SystemCounter):
+            return NotImplemented
+        return self._compute_sum() < other._compute_sum()
 
     def serialize(self) -> List[int]:
         if self._version is None:
