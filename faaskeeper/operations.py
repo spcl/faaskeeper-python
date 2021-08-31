@@ -8,6 +8,7 @@ from faaskeeper.exceptions import (
 )
 from faaskeeper.node import Node
 from faaskeeper.threading import Future
+from faaskeeper.version import SystemCounter, Version
 
 
 class Operation(ABC):
@@ -88,7 +89,9 @@ class CreateNode(RequestOperation):
 
     def process_result(self, result: dict, fut: Future):
         if result["status"] == "success":
-            fut.set_result(Node(path=result["path"]))
+            n = Node(path=result["path"])
+            n.created = Version(SystemCounter.from_raw_data(result["system_counter"]), None)
+            fut.set_result(n)
         else:
             if result["reason"] == "node_exists":
                 fut.set_exception(NodeExistsException(result["path"]))

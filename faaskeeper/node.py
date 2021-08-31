@@ -15,7 +15,7 @@ class Node:
         self._path = path
         self._data: Optional[bytes] = None
         self._created_version: Optional[Version] = None
-        self._modiifed_version: Optional[Version] = None
+        self._modified_version: Optional[Version] = None
 
     @property
     def path(self) -> str:
@@ -50,13 +50,13 @@ class Node:
 
     def serialize(self) -> dict:
         data_dict = {"data": str(self._data)} if self._data else {}
-        if self._created_version and self._modified_version:
-            version_dict = {
-                "version": {
-                    "created": self._created_version.serialize(),
-                    "modified": self._modified_version.serialize(),
-                }
+        version_dict = {}
+        if self._created_version:
+            version_dict["version"] = {
+                "created": self._created_version.serialize(),
             }
-        else:
-            version_dict = {}
+        if self._modified_version:
+            if "version" not in version_dict:
+                version_dict["version"] = {}
+            version_dict["version"]["modified"] = self._modified_version.serialize()
         return {"path": self._path, **data_dict, **version_dict}
