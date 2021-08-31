@@ -100,9 +100,12 @@ class Version:
         Current version of the node. The version expresses the most
         recent modification to the system, and the watch notifications that were
         being applied while the version was updated.
+
+        The epoch counter is not used by writer function, thus it can be null
+        at the global stage. It is set only in the user region.
     """
 
-    def __init__(self, system: SystemCounter, epoch: EpochCounter):
+    def __init__(self, system: SystemCounter, epoch: Optional[EpochCounter]):
         self._system = system
         self._epoch = epoch
 
@@ -115,7 +118,7 @@ class Version:
         self._system = val
 
     @property
-    def epoch(self) -> EpochCounter:
+    def epoch(self) -> Optional[EpochCounter]:
         return self._epoch
 
     @epoch.setter
@@ -123,4 +126,7 @@ class Version:
         self._epoch = val
 
     def serialize(self) -> dict:
-        return {"system": self._system.serialize(), "epoch": self._epoch.serialize()}
+        sys = {"system": self._system.serialize()}
+        if self._epoch is not None:
+            sys["epoch"] = self._epoch.serialize()
+        return sys
