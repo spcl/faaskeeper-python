@@ -31,6 +31,10 @@ class Node:
         self._data = data
 
     @property
+    def has_created(self) -> bool:
+        return self._created_version is not None
+
+    @property
     def created(self) -> Version:
         assert self._created_version is not None
         return self._created_version
@@ -47,6 +51,10 @@ class Node:
     @modified.setter
     def modified(self, val: Version):
         self._modified_version = val
+
+    @property
+    def has_modified(self) -> bool:
+        return self._modified_version is not None
 
     def serialize(self) -> dict:
         data_dict = {"data": str(self._data)} if self._data else {}
