@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from faaskeeper.exceptions import (
     BadVersionError,
     FaaSKeeperException,
+    NodeDoesntExistException,
     NodeExistsException,
     SessionExpiredException,
 )
@@ -129,6 +130,8 @@ class SetData(RequestOperation):
         else:
             if result["reason"] == "update_failure":
                 fut.set_exception(BadVersionError(self._version))
+            elif result["reason"] == "node_doesnt_exist":
+                fut.set_exception(NodeDoesntExistException(self._path))
             else:
                 fut.set_exception(FaaSKeeperException("unknown error"))
 
