@@ -110,9 +110,17 @@ class Version:
     def system(self) -> SystemCounter:
         return self._system
 
+    @system.setter
+    def system(self, val: SystemCounter):
+        self._system = val
+
     @property
     def epoch(self) -> EpochCounter:
         return self._epoch
+
+    @epoch.setter
+    def epoch(self, val: EpochCounter):
+        self._epoch = val
 
     def serialize(self) -> dict:
         return {"system": self._system.serialize(), "epoch": self._epoch.serialize()}
