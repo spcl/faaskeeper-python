@@ -47,19 +47,19 @@ class S3Reader(DataReader):
             # first pos is counter length, then counter data
             begin = 1
             end = begin + counter_data[0]
-            sys = SystemCounter(cast(List[int], counter_data[begin:end]))
+            sys = SystemCounter.from_raw_data(cast(List[int], counter_data[begin:end]))
             begin = end + 1
             end = begin + counter_data[begin - 1]
-            epoch = EpochCounter(set(counter_data[begin:end]))
+            epoch = EpochCounter.from_raw_data(set(counter_data[begin:end]))
             n.created = Version(sys, epoch)
 
             # read 'modified' counter
             begin = end + 1
             end = begin + counter_data[begin - 1]
-            sys = SystemCounter(cast(List[int], counter_data[begin:end]))
+            sys = SystemCounter.from_raw_data(cast(List[int], counter_data[begin:end]))
             begin = end + 1
             end = begin + counter_data[begin - 1]
-            epoch = EpochCounter(set(counter_data[begin:end]))
+            epoch = EpochCounter.from_raw_data(set(counter_data[begin:end]))
             n.modified = Version(sys, epoch)
 
             # first 4 byte integers define the counter structure.
@@ -82,24 +82,6 @@ class DynamoReader(DataReader):
         self._config = cfg
         self._dynamodb = client
 
-    @staticmethod
-    def _decode_schema_impl(items) -> List[str]:
-        result: List[str] = []
-        for key, value in items.items():
-            if key == "L":
-                for item in value:
-                    result.extend(DynamoReader._decode_schema_impl(item))
-            elif isinstance(value, list):
-                result.extend(value)
-            else:
-                result.append(value)
-        return result
-
-    @staticmethod
-    def _decode_schema(items: list) -> List[int]:
-        res = DynamoReader._decode_schema_impl(items)
-        return [int(x) for x in res]
-
     def get_data(self, path: str) -> Node:
 
         try:
@@ -116,12 +98,12 @@ class DynamoReader(DataReader):
             # parse DynamoDB storage of node data and counter values
             n = Node(path)
             n.created = Version(
-                SystemCounter(self._decode_schema(ret["Item"]["cFxidSys"])),
-                EpochCounter(set(self._decode_schema(ret["Item"]["cFxidEpoch"]))),
+                SystemCounter.from_provider_schema(ret["Item"]["cFxidSys"]),
+                EpochCounter.from_provider_schema(ret["Item"]["cFxidEpoch"]),
             )
             n.modified = Version(
-                SystemCounter(self._decode_schema(ret["Item"]["mFxidSys"])),
-                EpochCounter(set(self._decode_schema(ret["Item"]["mFxidEpoch"]))),
+                SystemCounter.from_provider_schema(ret["Item"]["mFxidSys"]),
+                EpochCounter.from_provider_schema(ret["Item"]["mFxidEpoch"]),
             )
             n.data = ret["Item"]["data"]["B"]
             # n.data = base64.b64decode(ret["Item"]["data"]["B"])
