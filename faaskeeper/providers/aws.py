@@ -88,7 +88,7 @@ class DynamoReader(DataReader):
         for key, value in items.items():
             if key == "L":
                 for item in value:
-                    result.extend(*DynamoReader._decode_schema_impl(item))
+                    result.extend(DynamoReader._decode_schema_impl(item))
             elif isinstance(value, list):
                 result.extend(value)
             else:
