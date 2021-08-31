@@ -120,7 +120,7 @@ class SetData(RequestOperation):
 
     def process_result(self, result: dict, fut: Future):
         if result["status"] == "success":
-            fut.set_result(result["path"])
+            fut.set_result(Node(path=result["path"]))
         else:
             if result["reason"] == "update_failure":
                 fut.set_exception(BadVersionError(self._version))
