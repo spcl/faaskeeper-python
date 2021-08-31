@@ -109,6 +109,8 @@ class DynamoReader(DataReader):
             # n.data = base64.b64decode(ret["Item"]["data"]["B"])
 
             return n
+        except self._dynamodb.exceptions.ResourceNotFoundException:
+            raise NodeDoesntExistException(path)
         except Exception as e:
             raise AWSException(
                 f"Failure on AWS client on DynamoDB table faaskeeper-{self._config.deployment_name}-data: {str(e)}"
