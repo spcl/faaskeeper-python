@@ -92,29 +92,27 @@ class DynamoReader(DataReader):
                 ConsistentRead=True,
                 ReturnConsumedCapacity="TOTAL",
             )
-            if "Item" not in ret:
-                raise NodeDoesntExistException(path)
-
-            # parse DynamoDB storage of node data and counter values
-            n = Node(path)
-            n.created = Version(
-                SystemCounter.from_provider_schema(ret["Item"]["cFxidSys"]),
-                EpochCounter.from_provider_schema(ret["Item"]["cFxidEpoch"]),
-            )
-            n.modified = Version(
-                SystemCounter.from_provider_schema(ret["Item"]["mFxidSys"]),
-                EpochCounter.from_provider_schema(ret["Item"]["mFxidEpoch"]),
-            )
-            n.data = ret["Item"]["data"]["B"]
-            # n.data = base64.b64decode(ret["Item"]["data"]["B"])
-
-            return n
-        except self._dynamodb.exceptions.ResourceNotFoundException:
-            raise NodeDoesntExistException(path)
         except Exception as e:
             raise AWSException(
                 f"Failure on AWS client on DynamoDB table faaskeeper-{self._config.deployment_name}-data: {str(e)}"
             )
+        if "Item" not in ret:
+            raise NodeDoesntExistException(path)
+
+        # parse DynamoDB storage of node data and counter values
+        n = Node(path)
+        n.created = Version(
+            SystemCounter.from_provider_schema(ret["Item"]["cFxidSys"]),
+            EpochCounter.from_provider_schema(ret["Item"]["cFxidEpoch"]),
+        )
+        n.modified = Version(
+            SystemCounter.from_provider_schema(ret["Item"]["mFxidSys"]),
+            EpochCounter.from_provider_schema(ret["Item"]["mFxidEpoch"]),
+        )
+        n.data = ret["Item"]["data"]["B"]
+        # n.data = base64.b64decode(ret["Item"]["data"]["B"])
+
+        return n
 
 
 class AWSClient(ProviderClient):
