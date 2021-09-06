@@ -96,6 +96,8 @@ class CreateNode(RequestOperation):
         else:
             if result["reason"] == "node_exists":
                 fut.set_exception(NodeExistsException(result["path"]))
+            elif result["reason"] == "node_doesnt_exist":
+                fut.set_exception(NodeDoesntExistException(result["path"]))
             else:
                 fut.set_exception(FaaSKeeperException("unknown error"))
 
