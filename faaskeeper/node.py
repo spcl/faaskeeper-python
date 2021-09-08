@@ -11,8 +11,9 @@ class Node:
         difference in the definition of node version - we use two counters.
     """
 
-    def __init__(self, path: str):
+    def __init__(self, path: str, ephemeral=false: bool):
         self._path = path
+        self._ephemeral = ephemeral
         self._data: Optional[bytes] = None
         self._created_version: Optional[Version] = None
         self._modified_version: Optional[Version] = None
@@ -25,6 +26,10 @@ class Node:
     def data(self) -> bytes:
         assert self._data is not None
         return self._data
+
+    @property
+    def ephemeral(self) -> bool:
+        return self._ephemeral
 
     @data.setter
     def data(self, data: bytes):
