@@ -78,11 +78,7 @@ class S3Reader(DataReader):
         format_string = ""
         for child in children:
             format_string += f"1I{len(child)}s"
-        print(format_string)
-        print([y for x in zip(children_lengths, children) for y in x])
         data += struct.pack(format_string, *[y for x in zip(children_lengths, children) for y in x])
-        print(len(data))
-        print(len(node.data))
         return data + node.data
 
     def get_data(self, path: str, full_data: bool = True) -> Optional[Node]:
@@ -102,8 +98,6 @@ class S3Reader(DataReader):
             # for each counter of N values, we store N + 1 4 byte integers
             # counter_len counter_0 counter_1 .... counter_{N-1}
             counter_data = struct.unpack_from(f"{counter_len}I", data, offset=offset)
-
-            print(header_size, counter_data, offset)
 
             # read 'created' counter
             # first pos is counter length, then counter data
@@ -126,9 +120,7 @@ class S3Reader(DataReader):
 
             if full_data:
                 offset += counter_len * 4
-                print(offset)
                 num_children_strings = struct.unpack_from(f"I", data, offset=offset)[0]
-                print(num_children_strings)
                 offset += 4
                 strings = []
                 # now read the encoded strings
@@ -137,10 +129,7 @@ class S3Reader(DataReader):
                 # then we read string length & follow with reading string data
                 for i in range(num_children_strings):
                     str_len = struct.unpack_from("I", data, offset=offset)[0]
-                    print(str_len, offset)
                     string_data = struct.unpack_from(f"{str_len}s", data, offset=offset + 4)[0]
-                    print(string_data, offset)
-                    print(string_data.decode())
                     strings.append(string_data.decode())
                     offset += 2 * str_len
                 n.children = strings
