@@ -1,7 +1,13 @@
-from typing import Optional
+from enum import Enum
+from typing import List, Optional
 
 from faaskeeper.version import Version
 
+class NodeDataType(Enum):
+    DATA = 0
+    CREATED = 1
+    MODIFIED = 2
+    CHILDREN = 3
 
 class Node:
 
@@ -14,12 +20,26 @@ class Node:
     def __init__(self, path: str):
         self._path = path
         self._data: Optional[bytes] = None
+        self._children: Optional[List[str]] = None
         self._created_version: Optional[Version] = None
         self._modified_version: Optional[Version] = None
 
     @property
     def path(self) -> str:
         return self._path
+
+    @property
+    def has_children(self) -> bool:
+        return self._children is not None
+
+    @property
+    def children(self) -> List[str]:
+        assert self._children is not None
+        return self._children
+
+    @children.setter
+    def children(self, children: List[str]):
+        self._children = children
 
     @property
     def has_data(self) -> bool:
@@ -71,4 +91,7 @@ class Node:
             if "version" not in version_dict:
                 version_dict["version"] = {}
             version_dict["version"]["modified"] = self._modified_version.serialize()
-        return {"path": self._path, **data_dict, **version_dict}
+        children_dict = {}
+        if self._children:
+            children_dict["children"] = self._children
+        return {"path": self._path, **data_dict, **version_dict, **children_dict}
