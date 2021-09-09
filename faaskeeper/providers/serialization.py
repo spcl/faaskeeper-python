@@ -54,7 +54,7 @@ class S3Reader(DataReader):
         modified_system = node.modified.system.serialize()
         modified_epoch: Set[int] = set()
         children = [x.encode() for x in node.children]
-        children_lengths = [4 * len(x) for x in children]
+        children_lengths = [len(x) for x in children]
 
         # first pack counters
         counters = [created_system, created_epoch, modified_system, modified_epoch]
