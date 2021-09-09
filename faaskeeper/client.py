@@ -86,7 +86,7 @@ class FaaSKeeperClient:
     def _sanitize_path(path: str):
         if not path.startswith("/"):
             raise MalformedInputException("Path must begin with /")
-        if path.endswith("/"):
+        if path.endswith("/") and path != "/":
             raise MalformedInputException("Path must not end with /")
 
     # FIXME: exception for incorrect connection
