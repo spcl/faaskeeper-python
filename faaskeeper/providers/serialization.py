@@ -78,7 +78,11 @@ class S3Reader(DataReader):
         format_string = ""
         for child in children:
             format_string += f"1I{len(child)}s"
+        print(format_string)
+        print([y for x in zip(children_lengths, children) for y in x])
         data += struct.pack(format_string, *[y for x in zip(children_lengths, children) for y in x])
+        print(len(data))
+        print(len(node.data))
         return data + node.data
 
     def get_data(self, path: str, full_data: bool = True) -> Optional[Node]:
@@ -99,6 +103,8 @@ class S3Reader(DataReader):
             # counter_len counter_0 counter_1 .... counter_{N-1}
             counter_data = struct.unpack_from(f"{counter_len}I", data, offset=offset)
 
+            print(header_size, counter_data, offset)
+
             # read 'created' counter
             # first pos is counter length, then counter data
             begin = 1
@@ -118,15 +124,31 @@ class S3Reader(DataReader):
             epoch = EpochCounter.from_raw_data(set(counter_data[begin:end]))
             n.modified = Version(sys, epoch)
 
-            # now read the encoded strings
-            # unfortunately, there's no native support for variable len strings
-            # we read string length, then we read string data
-
-            # first 4 byte integers define the counter structure.
-            # the rest ist just data
-            # black does correct formatting, flake8 has a bug - it triggers E203 violation
             if full_data:
-                n.data = data[(counter_len + 1) * 4 :]  # noqa
+                offset += counter_len * 4
+                print(offset)
+                num_children_strings = struct.unpack_from(f"I", data, offset=offset)[0]
+                print(num_children_strings)
+                offset += 4
+                strings = []
+                # now read the encoded strings
+                # unfortunately, there's no native support for variable len strings
+                # we read number of strings
+                # then we read string length & follow with reading string data
+                for i in range(num_children_strings):
+                    str_len = struct.unpack_from("I", data, offset=offset)[0]
+                    print(str_len, offset)
+                    string_data = struct.unpack_from(f"{str_len}s", data, offset=offset + 4)[0]
+                    print(string_data, offset)
+                    print(string_data.decode())
+                    strings.append(string_data.decode())
+                    offset += 2 * str_len
+                n.children = strings
+
+                # first 4 byte integers define the counter structure.
+                # the rest ist just data
+                # black does correct formatting, flake8 has a bug - it triggers E203 violation
+                n.data = data[offset:]  # noqa
 
             return n
         except self._s3.exceptions.NoSuchKey:
