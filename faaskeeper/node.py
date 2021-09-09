@@ -22,6 +22,10 @@ class Node:
         return self._path
 
     @property
+    def has_data(self) -> bool:
+        return self._data is not None
+
+    @property
     def data(self) -> bytes:
         assert self._data is not None
         return self._data
