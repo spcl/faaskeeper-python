@@ -31,7 +31,7 @@ class Node:
         return self._path
 
     @property
-    def children(self) -> Optional[List[str]]:
+    def children(self) -> List[str]:
         assert self._children is not None
         return self._children
 
