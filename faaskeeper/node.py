@@ -20,7 +20,7 @@ class Node:
     def __init__(self, path: str):
         self._path = path
         self._data: Optional[bytes] = None
-        self._children: Optional[List[str]] = None
+        self._children: List[str] = []
         self._created_version: Optional[Version] = None
         self._modified_version: Optional[Version] = None
 
@@ -29,12 +29,7 @@ class Node:
         return self._path
 
     @property
-    def has_children(self) -> bool:
-        return self._children is not None
-
-    @property
     def children(self) -> List[str]:
-        assert self._children is not None
         return self._children
 
     @children.setter
