@@ -1,4 +1,5 @@
-from typing import Dict, Optional, Union
+from os.path import join
+from typing import Dict, List, Optional, Union
 
 import boto3
 
@@ -47,7 +48,17 @@ class AWSClient(ProviderClient):
             raise NodeDoesntExistException(path)
 
     def exists(self, path: str) -> Optional[Node]:
-        return self._data_reader.get_data(path, full_data=False)
+        return self._data_reader.get_data(path, include_data=False, include_children=False)
+
+    def get_children(self, path: str, include_data: bool) -> List[Node]:
+        node = self._data_reader.get_data(path, include_data=False)
+        assert node
+        children = []
+        for child in node.children:
+            n = self._data_reader.get_data(join(path, child), include_data=include_data)
+            if n is not None:
+                children.append(n)
+        return children
 
     def register_session(self, session_id: str, source_addr: str, heartbeat: bool):
 

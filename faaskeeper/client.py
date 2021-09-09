@@ -1,6 +1,6 @@
 import logging
 import uuid
-from typing import Optional
+from typing import List, Optional
 
 from faaskeeper.config import CloudProvider, Config
 from faaskeeper.exceptions import (
@@ -13,6 +13,7 @@ from faaskeeper.operations import (
     CreateNode,
     DeregisterSession,
     ExistsNode,
+    GetChildren,
     GetData,
     RegisterSession,
     SetData,
@@ -241,6 +242,34 @@ class FaaSKeeperClient:
         assert self.session_id
         self._work_queue.add_request(
             GetData(session_id=self.session_id, path=path), future,
+        )
+        return future
+
+    # FIXME: add watch
+    # FIXME: document exceptions
+    def get_children(self, path: str, include_data: bool = False) -> List[Node]:
+        """Get a list of child nodes of a path.
+
+        :param path: node path
+        :param include_data: if true, then return the data of each child as well
+        :returns: list of nodes
+        """
+        return self.get_children_async(path, include_data).get()
+
+    # FIXME: add watch
+    # FIXME: document exceptions
+    def get_children_async(self, path: str, include_data: bool = False) -> Future:
+        """Retrieve user data in an asynchronous mode.
+
+        :param path: node path
+        :returns: future representing the operation and its result - user data as bytes
+        """
+
+        FaaSKeeperClient._sanitize_path(path)
+        future = Future()
+        assert self.session_id
+        self._work_queue.add_request(
+            GetChildren(session_id=self.session_id, path=path, include_data=include_data), future,
         )
         return future
 

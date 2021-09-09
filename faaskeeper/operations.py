@@ -5,6 +5,7 @@ from faaskeeper.exceptions import (
     FaaSKeeperException,
     NodeDoesntExistException,
     NodeExistsException,
+    NotEmptyException,
     SessionExpiredException,
 )
 from faaskeeper.node import Node
@@ -145,6 +146,41 @@ class SetData(RequestOperation):
         return "set_data"
 
 
+class DeleteNode(RequestOperation):
+    def __init__(self, session_id: str, path: str, version: int):
+        super().__init__(session_id, path)
+        self._version = version
+
+    def generate_request(self) -> dict:
+        return {
+            "op": self.name,
+            "path": self._path,
+            "user": self._session_id,
+            "version": self._version,
+        }
+
+    def process_result(self, result: dict, fut: Future):
+        if result["status"] == "success":
+            # function returns void
+            fut.set_result(None)
+        else:
+            if result["reason"] == "update_failure":
+                fut.set_exception(BadVersionError(self._version))
+            elif result["reason"] == "node_doesnt_exist":
+                fut.set_exception(NodeDoesntExistException(self._path))
+            elif result["reason"] == "not_empty":
+                fut.set_exception(NotEmptyException(self._path))
+            else:
+                fut.set_exception(FaaSKeeperException("unknown error"))
+
+    def returns_directly(self) -> bool:
+        return False
+
+    @property
+    def name(self) -> str:
+        return "delete"
+
+
 class GetData(DirectOperation):
     def __init__(self, session_id: str, path: str):
         super().__init__(session_id, path)
@@ -152,6 +188,20 @@ class GetData(DirectOperation):
     @property
     def name(self) -> str:
         return "get_data"
+
+
+class GetChildren(DirectOperation):
+    def __init__(self, session_id: str, path: str, include_data: bool):
+        super().__init__(session_id, path)
+        self._include_data = include_data
+
+    @property
+    def name(self) -> str:
+        return "get_children"
+
+    @property
+    def include_data(self) -> bool:
+        return self._include_data
 
 
 class ExistsNode(DirectOperation):

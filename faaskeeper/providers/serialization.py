@@ -17,7 +17,7 @@ class DataReader(ABC):
         self._deployment_name = deployment_name
 
     @abstractmethod
-    def get_data(self, path: str, full_data: bool = True) -> Optional[Node]:
+    def get_data(self, path: str, include_data: bool = True, include_children: bool = True) -> Optional[Node]:
         pass
 
 
@@ -81,7 +81,7 @@ class S3Reader(DataReader):
         data += struct.pack(format_string, *[y for x in zip(children_lengths, children) for y in x])
         return data + node.data
 
-    def get_data(self, path: str, full_data: bool = True) -> Optional[Node]:
+    def get_data(self, path: str, include_data: bool = True, include_children: bool = True) -> Optional[Node]:
 
         try:
             obj = self._s3.get_object(Bucket=self._storage_name, Key=path)
@@ -119,7 +119,7 @@ class S3Reader(DataReader):
             epoch = EpochCounter.from_raw_data(set(counter_data[begin:end]))
             n.modified = Version(sys, epoch)
 
-            if full_data:
+            if include_children:
                 num_children_strings = struct.unpack_from(f"<I", data, offset=offset)[0]
                 offset += struct.calcsize(f"<I")
 
@@ -136,6 +136,7 @@ class S3Reader(DataReader):
                     strings.append(string_data.decode())
                 n.children = strings
 
+            if include_data:
                 # first 4 byte integers define the counter structure.
                 # the rest ist just data
                 # black does correct formatting, flake8 has a bug - it triggers E203 violation
@@ -189,25 +190,22 @@ class DynamoReader(DataReader):
             key: {DynamoReader._dynamodb_type(value): DynamoReader._dynamodb_val(value)} for key, value in items.items()
         }
 
-    def get_data(self, path: str, full_data: bool = True) -> Optional[Node]:
+    def get_data(self, path: str, include_data: bool = True, include_children: bool = True) -> Optional[Node]:
 
         try:
             # FIXME: check return value
-            if full_data:
-                ret = self._dynamodb.get_item(
-                    TableName=f"faaskeeper-{self._config.deployment_name}-data",
-                    Key=DynamoReader._convert_items({"path": path}),
-                    ConsistentRead=True,
-                    ReturnConsumedCapacity="TOTAL",
-                )
-            else:
-                ret = self._dynamodb.get_item(
-                    TableName=f"faaskeeper-{self._config.deployment_name}-data",
-                    Key=DynamoReader._convert_items({"path": path}),
-                    ConsistentRead=True,
-                    ReturnConsumedCapacity="TOTAL",
-                    AttributesToGet=["cFxidSys", "cFxidEpoch", "mFxidSys", "mFxidEpoch"],
-                )
+            AttributesToGet = ["cFxidSys", "cFxidEpoch", "mFxidSys", "mFxidEpoch"]
+            if include_data:
+                AttributesToGet.append("data")
+            if include_children:
+                AttributesToGet.append("children")
+            ret = self._dynamodb.get_item(
+                TableName=f"faaskeeper-{self._config.deployment_name}-data",
+                Key=DynamoReader._convert_items({"path": path}),
+                ConsistentRead=True,
+                ReturnConsumedCapacity="TOTAL",
+                AttributesToGet=AttributesToGet,
+            )
         except Exception as e:
             raise AWSException(
                 f"Failure on AWS client on DynamoDB table faaskeeper-{self._config.deployment_name}-data: {str(e)}"

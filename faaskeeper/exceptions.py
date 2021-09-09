@@ -67,6 +67,14 @@ class NodeDoesntExistException(ZooKeeperException):
         super().__init__(f"Node {path} does not exist!")
 
 
+class NotEmptyException(ZooKeeperException):
+    """Describes failed delete operation because of existing children.
+    """
+
+    def __init__(self, path: str):
+        super().__init__(f"Node {path} cannot be deleted - it has children!")
+
+
 class BadVersionError(ZooKeeperException):
     """Describes unsuccesful update operation.
     """
