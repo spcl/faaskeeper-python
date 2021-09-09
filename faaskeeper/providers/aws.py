@@ -1,6 +1,6 @@
 import struct
 from abc import ABC, abstractmethod
-from typing import Dict, List, Union, cast
+from typing import Dict, List, Optional, Union, cast
 
 import boto3
 
@@ -16,7 +16,7 @@ class DataReader(ABC):
         self._deployment_name = deployment_name
 
     @abstractmethod
-    def get_data(self, path: str) -> Node:
+    def get_data(self, path: str, full_data: bool = True) -> Optional[Node]:
         pass
 
 
@@ -27,7 +27,7 @@ class S3Reader(DataReader):
         self._s3 = boto3.client("s3")
         self._storage_name = f"faaskeeper-{cfg.deployment_name}-data"
 
-    def get_data(self, path: str) -> Node:
+    def get_data(self, path: str, full_data: bool = True) -> Optional[Node]:
 
         try:
             obj = self._s3.get_object(Bucket=self._storage_name, Key=path)
@@ -65,11 +65,12 @@ class S3Reader(DataReader):
             # first 4 byte integers define the counter structure.
             # the rest ist just data
             # black does correct formatting, flake8 has a bug - it triggers E203 violation
-            n.data = data[(counter_len + 1) * 4 :]  # noqa
+            if full_data:
+                n.data = data[(counter_len + 1) * 4 :]  # noqa
 
             return n
         except self._s3.exceptions.NoSuchKey:
-            raise NodeDoesntExistException(path)
+            return None
         except Exception as e:
             raise AWSException(
                 f"Failure on AWS client on S3 bucket faaskeeper-{self._config.deployment_name}-data: {str(e)}"
@@ -82,22 +83,31 @@ class DynamoReader(DataReader):
         self._config = cfg
         self._dynamodb = client
 
-    def get_data(self, path: str) -> Node:
+    def get_data(self, path: str, full_data: bool = True) -> Optional[Node]:
 
         try:
             # FIXME: check return value
-            ret = self._dynamodb.get_item(
-                TableName=f"faaskeeper-{self._config.deployment_name}-data",
-                Key=AWSClient._convert_items({"path": path}),
-                ConsistentRead=True,
-                ReturnConsumedCapacity="TOTAL",
-            )
+            if full_data:
+                ret = self._dynamodb.get_item(
+                    TableName=f"faaskeeper-{self._config.deployment_name}-data",
+                    Key=AWSClient._convert_items({"path": path}),
+                    ConsistentRead=True,
+                    ReturnConsumedCapacity="TOTAL",
+                )
+            else:
+                ret = self._dynamodb.get_item(
+                    TableName=f"faaskeeper-{self._config.deployment_name}-data",
+                    Key=AWSClient._convert_items({"path": path}),
+                    ConsistentRead=True,
+                    ReturnConsumedCapacity="TOTAL",
+                    AttributesToGet=["cFxidSys", "cFxidEpoch", "mFxidSys", "mFxidEpoch"],
+                )
         except Exception as e:
             raise AWSException(
                 f"Failure on AWS client on DynamoDB table faaskeeper-{self._config.deployment_name}-data: {str(e)}"
             )
         if "Item" not in ret:
-            raise NodeDoesntExistException(path)
+            return None
 
         # parse DynamoDB storage of node data and counter values
         n = Node(path)
@@ -109,7 +119,8 @@ class DynamoReader(DataReader):
             SystemCounter.from_provider_schema(ret["Item"]["mFxidSys"]),
             EpochCounter.from_provider_schema(ret["Item"]["mFxidEpoch"]),
         )
-        n.data = ret["Item"]["data"]["B"]
+        if "data" in ret["Item"]:
+            n.data = ret["Item"]["data"]["B"]
         # n.data = base64.b64decode(ret["Item"]["data"]["B"])
 
         return n
@@ -173,7 +184,14 @@ class AWSClient(ProviderClient):
             )
 
     def get_data(self, path: str) -> Node:
-        return self._data_reader.get_data(path)
+        node = self._data_reader.get_data(path)
+        if node is not None:
+            return node
+        else:
+            raise NodeDoesntExistException(path)
+
+    def exists(self, path: str) -> Optional[Node]:
+        return self._data_reader.get_data(path, full_data=False)
 
     def register_session(self, session_id: str, source_addr: str, heartbeat: bool):
 

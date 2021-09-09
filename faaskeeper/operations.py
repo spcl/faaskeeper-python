@@ -154,6 +154,15 @@ class GetData(DirectOperation):
         return "get_data"
 
 
+class ExistsNode(DirectOperation):
+    def __init__(self, session_id: str, path: str):
+        super().__init__(session_id, path)
+
+    @property
+    def name(self) -> str:
+        return "exists"
+
+
 class RegisterSession(DirectOperation):
     def __init__(self, session_id: str, source_addr: str, heartbeat: bool):
         super().__init__(session_id, "")

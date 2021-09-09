@@ -12,6 +12,7 @@ from faaskeeper.node import Node
 from faaskeeper.operations import (
     CreateNode,
     DeregisterSession,
+    ExistsNode,
     GetData,
     RegisterSession,
     SetData,
@@ -217,7 +218,6 @@ class FaaSKeeperClient:
         return future
 
     # FIXME: add watch
-    # FIXME: implement node stats
     # FIXME: document exceptions
     def get_data(self, path: str) -> Node:
         """Retrieve user data from a node.
@@ -228,7 +228,6 @@ class FaaSKeeperClient:
         return self.get_data_async(path).get()
 
     # FIXME: add watch
-    # FIXME: implement node stats
     # FIXME: document exceptions
     def get_data_async(self, path: str) -> Future:
         """Retrieve user data in an asynchronous mode.
@@ -242,6 +241,33 @@ class FaaSKeeperClient:
         assert self.session_id
         self._work_queue.add_request(
             GetData(session_id=self.session_id, path=path), future,
+        )
+        return future
+
+    # FIXME: add watch
+    # FIXME: document exceptions
+    def exists(self, path: str) -> Optional[Node]:
+        """Retrieve user data from a node.
+
+        :param path: node path
+        :returns: user data as bytes
+        """
+        return self.exists_async(path).get()
+
+    # FIXME: add watch
+    # FIXME: document exceptions
+    def exists_async(self, path: str) -> Future:
+        """Retrieve user data in an asynchronous mode.
+
+        :param path: node path
+        :returns: future representing the operation and its result - user data as bytes
+        """
+
+        FaaSKeeperClient._sanitize_path(path)
+        future = Future()
+        assert self.session_id
+        self._work_queue.add_request(
+            ExistsNode(session_id=self.session_id, path=path), future,
         )
         return future
 
