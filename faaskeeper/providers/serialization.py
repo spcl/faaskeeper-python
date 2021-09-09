@@ -93,11 +93,12 @@ class S3Reader(DataReader):
             # first element tells us the entire header size
             # the second one - number of integers defining counters
             header_size, counter_len = struct.unpack_from("<2I", data)
-            offset = 8
+            offset = struct.calcsize("<2I")
             # now parse counter data
             # for each counter of N values, we store N + 1 4 byte integers
             # counter_len counter_0 counter_1 .... counter_{N-1}
             counter_data = struct.unpack_from(f"<{counter_len}I", data, offset=offset)
+            offset += struct.calcsize(f"<{counter_len}I")
 
             # read 'created' counter
             # first pos is counter length, then counter data
@@ -119,9 +120,9 @@ class S3Reader(DataReader):
             n.modified = Version(sys, epoch)
 
             if full_data:
-                offset += counter_len * 4
                 num_children_strings = struct.unpack_from(f"<I", data, offset=offset)[0]
-                offset += 4
+                offset += struct.calcsize(f"<I")
+
                 strings = []
                 # now read the encoded strings
                 # unfortunately, there's no native support for variable len strings
@@ -129,9 +130,10 @@ class S3Reader(DataReader):
                 # then we read string length & follow with reading string data
                 for i in range(num_children_strings):
                     str_len = struct.unpack_from("<I", data, offset=offset)[0]
-                    string_data = struct.unpack_from(f"<{str_len}s", data, offset=offset + 4)[0]
+                    offset += struct.calcsize(f"<I")
+                    string_data = struct.unpack_from(f"<{str_len}s", data, offset=offset)[0]
+                    offset += struct.calcsize(f"<{str_len}s")
                     strings.append(string_data.decode())
-                    offset += 2 * str_len
                 n.children = strings
 
                 # first 4 byte integers define the counter structure.
