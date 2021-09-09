@@ -32,6 +32,7 @@ class Node:
 
     @property
     def children(self) -> Optional[List[str]]:
+        assert self._children is not None
         return self._children
 
     @children.setter
