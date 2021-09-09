@@ -22,7 +22,7 @@ class Node:
     def __init__(self, path: str):
         self._path = path
         self._data: Optional[bytes] = None
-        self._children: Optional[List[str]] = []
+        self._children: Optional[List[str]] = None
         self._created_version: Optional[Version] = None
         self._modified_version: Optional[Version] = None
 
@@ -93,6 +93,6 @@ class Node:
                 version_dict["version"] = {}
             version_dict["version"]["modified"] = self._modified_version.serialize()
         children_dict = {}
-        if self._children:
+        if self._children is not None:
             children_dict["children"] = self._children
         return {"path": self._path, **data_dict, **version_dict, **children_dict}
