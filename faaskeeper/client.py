@@ -273,7 +273,7 @@ class FaaSKeeperClient:
 
     # FIXME: document exceptions
     # FIXME: conditonal updates based on user data
-    def set_data(self, path: str, value: bytes = b"", version: int = -1) -> str:
+    def set_data(self, path: str, value: bytes = b"", version: int = -1) -> Node:
         """Modify the user data in a node.
 
         :param path: node path
