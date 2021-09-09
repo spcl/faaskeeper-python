@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, List, Optional, Union, cast
 
 import boto3
+from boto3.dynamodb.types import TypeDeserializer
 
 from faaskeeper.config import Config, StorageType
 from faaskeeper.exceptions import AWSException, NodeDoesntExistException
@@ -82,6 +83,7 @@ class DynamoReader(DataReader):
         super().__init__(cfg.deployment_name)
         self._config = cfg
         self._dynamodb = client
+        self._deserializer = TypeDeserializer()
 
     def get_data(self, path: str, full_data: bool = True) -> Optional[Node]:
 
@@ -121,7 +123,8 @@ class DynamoReader(DataReader):
         )
         if "data" in ret["Item"]:
             n.data = ret["Item"]["data"]["B"]
-        # n.data = base64.b64decode(ret["Item"]["data"]["B"])
+        if "children" in ret["Item"]:
+            n.children = self._deserializer.deserialize(ret["Item"]["children"])
 
         return n
 
