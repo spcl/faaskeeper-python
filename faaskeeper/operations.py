@@ -178,7 +178,7 @@ class DeleteNode(RequestOperation):
 
     @property
     def name(self) -> str:
-        return "delete"
+        return "delete_node"
 
 
 class GetData(DirectOperation):

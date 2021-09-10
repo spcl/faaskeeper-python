@@ -11,6 +11,7 @@ from faaskeeper.exceptions import (
 from faaskeeper.node import Node
 from faaskeeper.operations import (
     CreateNode,
+    DeleteNode,
     DeregisterSession,
     ExistsNode,
     GetChildren,
@@ -330,5 +331,36 @@ class FaaSKeeperClient:
         future = Future()
         self._work_queue.add_request(
             SetData(session_id=self._session_id, path=path, value=value, version=version), future,
+        )
+        return future
+
+    # FIXME: document exceptions
+    # FIXME: conditonal updates based on user data
+    def delete(self, path: str, version: int = -1):
+        """Delete a node.
+
+        :param path: node path
+        :param version: apply the modification only if current version agrees with the argument, defaults to -1
+        """
+        return self.delete_async(path, version).get()
+
+    # FIXME: document exceptions
+    # FIXME: conditonal updates based on user data
+    def delete_async(self, path: str, version: int = -1) -> Future:
+        """Delete a node in an asynchronous mode.
+
+        :param path: node path
+        :param values: new data to be written
+        :param version: apply the modification only if current version agrees with the argument, defaults to -1
+        :returns: future representing the operation and its result - confirmation and new node version
+        """
+        # FIXME: add exception classes
+        if not self._session_id:
+            raise RuntimeError()
+
+        FaaSKeeperClient._sanitize_path(path)
+        future = Future()
+        self._work_queue.add_request(
+            DeleteNode(session_id=self._session_id, path=path, version=version), future,
         )
         return future
