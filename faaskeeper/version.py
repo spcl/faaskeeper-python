@@ -65,6 +65,10 @@ class SystemCounter:
         assert self._provider_data
         return self._provider_data
 
+    @property
+    def sum(self) -> int:
+        return self._compute_sum()
+
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, SystemCounter):
             return NotImplemented
