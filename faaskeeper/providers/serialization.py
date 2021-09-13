@@ -81,68 +81,72 @@ class S3Reader(DataReader):
         data += struct.pack(format_string, *[y for x in zip(children_lengths, children) for y in x])
         return data + node.data
 
+    def deserialize(path: str, data: bytes, include_data: bool = True, include_children: bool = True) -> Node:
+
+        # parse DynamoDB storage of node data and counter values
+        n = Node(path)
+        # unpack always returns a tuple, even for a single element
+        # first element tells us the entire header size
+        # the second one - number of integers defining counters
+        header_size, counter_len = struct.unpack_from("<2I", data)
+        offset = struct.calcsize("<2I")
+        # now parse counter data
+        # for each counter of N values, we store N + 1 4 byte integers
+        # counter_len counter_0 counter_1 .... counter_{N-1}
+        counter_data = struct.unpack_from(f"<{counter_len}I", data, offset=offset)
+        offset += struct.calcsize(f"<{counter_len}I")
+
+        # read 'created' counter
+        # first pos is counter length, then counter data
+        begin = 1
+        end = begin + counter_data[0]
+        sys = SystemCounter.from_raw_data(cast(List[int], counter_data[begin:end]))
+        begin = end + 1
+        end = begin + counter_data[begin - 1]
+        epoch = EpochCounter.from_raw_data(set(counter_data[begin:end]))
+        n.created = Version(sys, epoch)
+
+        # read 'modified' counter
+        begin = end + 1
+        end = begin + counter_data[begin - 1]
+        sys = SystemCounter.from_raw_data(cast(List[int], counter_data[begin:end]))
+        begin = end + 1
+        end = begin + counter_data[begin - 1]
+        epoch = EpochCounter.from_raw_data(set(counter_data[begin:end]))
+        n.modified = Version(sys, epoch)
+
+        if include_children:
+            num_children_strings = struct.unpack_from(f"<I", data, offset=offset)[0]
+            offset += struct.calcsize(f"<I")
+
+            strings = []
+            # now read the encoded strings
+            # unfortunately, there's no native support for variable len strings
+            # we read number of strings
+            # then we read string length & follow with reading string data
+            for i in range(num_children_strings):
+                str_len = struct.unpack_from("<I", data, offset=offset)[0]
+                offset += struct.calcsize(f"<I")
+                string_data = struct.unpack_from(f"<{str_len}s", data, offset=offset)[0]
+                offset += struct.calcsize(f"<{str_len}s")
+                strings.append(string_data.decode())
+            n.children = strings
+
+        if include_data:
+            # first 4 byte integers define the counter structure.
+            # the rest ist just data
+            # black does correct formatting, flake8 has a bug - it triggers E203 violation
+            n.data = data[offset:]  # noqa
+
+        return n
+
     def get_data(self, path: str, include_data: bool = True, include_children: bool = True) -> Optional[Node]:
 
         try:
             obj = self._s3.get_object(Bucket=self._storage_name, Key=path)
             data = obj["Body"].read()
 
-            # parse DynamoDB storage of node data and counter values
-            n = Node(path)
-            # unpack always returns a tuple, even for a single element
-            # first element tells us the entire header size
-            # the second one - number of integers defining counters
-            header_size, counter_len = struct.unpack_from("<2I", data)
-            offset = struct.calcsize("<2I")
-            # now parse counter data
-            # for each counter of N values, we store N + 1 4 byte integers
-            # counter_len counter_0 counter_1 .... counter_{N-1}
-            counter_data = struct.unpack_from(f"<{counter_len}I", data, offset=offset)
-            offset += struct.calcsize(f"<{counter_len}I")
-
-            # read 'created' counter
-            # first pos is counter length, then counter data
-            begin = 1
-            end = begin + counter_data[0]
-            sys = SystemCounter.from_raw_data(cast(List[int], counter_data[begin:end]))
-            begin = end + 1
-            end = begin + counter_data[begin - 1]
-            epoch = EpochCounter.from_raw_data(set(counter_data[begin:end]))
-            n.created = Version(sys, epoch)
-
-            # read 'modified' counter
-            begin = end + 1
-            end = begin + counter_data[begin - 1]
-            sys = SystemCounter.from_raw_data(cast(List[int], counter_data[begin:end]))
-            begin = end + 1
-            end = begin + counter_data[begin - 1]
-            epoch = EpochCounter.from_raw_data(set(counter_data[begin:end]))
-            n.modified = Version(sys, epoch)
-
-            if include_children:
-                num_children_strings = struct.unpack_from(f"<I", data, offset=offset)[0]
-                offset += struct.calcsize(f"<I")
-
-                strings = []
-                # now read the encoded strings
-                # unfortunately, there's no native support for variable len strings
-                # we read number of strings
-                # then we read string length & follow with reading string data
-                for i in range(num_children_strings):
-                    str_len = struct.unpack_from("<I", data, offset=offset)[0]
-                    offset += struct.calcsize(f"<I")
-                    string_data = struct.unpack_from(f"<{str_len}s", data, offset=offset)[0]
-                    offset += struct.calcsize(f"<{str_len}s")
-                    strings.append(string_data.decode())
-                n.children = strings
-
-            if include_data:
-                # first 4 byte integers define the counter structure.
-                # the rest ist just data
-                # black does correct formatting, flake8 has a bug - it triggers E203 violation
-                n.data = data[offset:]  # noqa
-
-            return n
+            return self.deserialize(path, data, include_data, include_children)
         except self._s3.exceptions.NoSuchKey:
             return None
         except Exception as e:
