@@ -1,8 +1,6 @@
 from enum import Enum
 from typing import Callable
 
-from faaskeeper.node import Node
-
 
 class WatchEventType(Enum):
     """Implementing API similar to ZooKeeper - inspired by the
@@ -14,20 +12,28 @@ class WatchEventType(Enum):
     NODE_DATA_CHANGED = 2
     NODE_CHILDREN_CHANGED = 3
 
+    def __str__(self):
+        return {0: "NodeCreated", 1: "NodeDeleted", 2: "NodeDataChanged", 3: "NodeChildrenChanged"}.get(self.value)
+
 
 class WatchedEvent:
 
-    """Implementing API similar to ZooKeeper - inspired by the
+    """Implementing API similar to ZtooKeeper - inspired by the
         org.apache.zookeeper.WatchedEvent
     """
 
-    def __init__(self, event_type: "WatchEventType", node: Node):
-        self._node = node
+    def __init__(self, event_type: "WatchEventType", path: str, timestamp: int):
+        self._path = path
         self._event_type = event_type
+        self._timestamp = timestamp
 
     @property
-    def node(self) -> Node:
-        return self._node
+    def timestamp(self) -> int:
+        return self._timestamp
+
+    @property
+    def path(self) -> str:
+        return self._path
 
     @property
     def event_type(self) -> "WatchEventType":
@@ -44,10 +50,14 @@ class WatchType(Enum):
 
 
 class Watch:
-    def __init__(self, watch_id: int, watch_type: WatchType):
-        self._watch_id = watch_id
+    def __init__(self, timestamp: int, watch_type: WatchType, callback: WatchCallbackType):
+        self._timestamp = timestamp
         self._watch_type = watch_type
+        self._callback = callback
 
-    def generate_message(self, msg: dict):
-        # FIXME: parse cloud event into proper message
-        return msg
+    def generate_message(self, event: WatchedEvent):
+        self._callback(event)
+
+    @property
+    def watch_type(self) -> "WatchType":
+        return self._watch_type

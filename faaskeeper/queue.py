@@ -1,3 +1,4 @@
+import hashlib
 import json
 import logging
 import socket
@@ -6,8 +7,8 @@ import urllib.request
 from datetime import datetime
 from enum import Enum
 from queue import Empty, Queue
-from threading import Event, Thread
-from typing import Optional, Tuple, Union
+from threading import Event, Lock, Thread
+from typing import Dict, List, Optional, Tuple, Union
 
 from faaskeeper.exceptions import (
     ProviderException,
@@ -18,6 +19,7 @@ from faaskeeper.node import Node
 from faaskeeper.operations import Operation
 from faaskeeper.providers.provider import ProviderClient
 from faaskeeper.threading import Future
+from faaskeeper.watch import Watch, WatchedEvent, WatchEventType, WatchType
 
 
 def wait_until(timeout: float, interval: float, condition, *args):
@@ -52,6 +54,7 @@ class EventQueue:
         CLOUD_INDIRECT_RESULT = 0
         CLOUD_DIRECT_RESULT = 1
         CLOUD_EXPECTED_RESULT = 2
+        WATCH_NOTIFICATION = 3
 
     """
         The queue is used to handle replies and watch notifications from the service.
@@ -63,7 +66,12 @@ class EventQueue:
 
     def __init__(self):
         self._queue = Queue()
+        # Stores hash of node -> watches
+        # User could have multiple watches per node (exists, get_data)
+        self._watches: Dict[str, List[Watch]] = {}
+        self._watches_lock = Lock()
         self._closing = False
+        self._log = logging.getLogger("EventQueue")
 
     def add_expected_result(self, request_id: int, request: Operation, future: Future):
         if self._closing:
@@ -82,6 +90,57 @@ class EventQueue:
             raise SessionClosingException()
 
         self._queue.put((EventQueue.EventType.CLOUD_INDIRECT_RESULT, result))
+
+    def add_watch_notification(self, result: dict):
+        if self._closing:
+            raise SessionClosingException()
+
+        path = result["path"]
+        watch_event = WatchEventType(result["watch-event"])
+        timestamp = result["timestamp"]
+
+        hashed_path = hashlib.md5(path.encode()).hexdigest()
+        # FIXME: check timestamp of event with our watch
+        # FIXME: Full implementation of different types
+        with self._watches_lock:
+            existing_watches = self._watches.get(hashed_path)
+            if existing_watches:
+                for idx, w in enumerate(existing_watches):
+                    if watch_event == WatchEventType.NODE_DATA_CHANGED:
+                        if w.watch_type == WatchType.GET_DATA:
+                            self._queue.put(
+                                (
+                                    EventQueue.EventType.WATCH_NOTIFICATION,
+                                    w,
+                                    WatchedEvent(watch_event, path, timestamp),
+                                )
+                            )
+                            del existing_watches[idx]
+                        return
+                self._log.warn(f"Ignoring unknown watch notification for even {watch_event} on path {path}")
+            else:
+                self._log.warn(f"Ignoring unknown watch notification for even {watch_event} on path {path}")
+
+    def add_watch(self, path: str, watch: Watch):
+        if self._closing:
+            raise SessionClosingException()
+
+        # verify that we don't replace watches
+        with self._watches_lock:
+            hashed_path = hashlib.md5(path.encode()).hexdigest()
+            existing_watches = self._watches.get(hashed_path)
+            if existing_watches:
+                for idx, w in enumerate(existing_watches):
+                    # Replace existing watch
+                    # FIXME: is it safe? shouldn't we just generate notification?
+                    # this means that we read result before getting notification
+                    if w.watch_type == watch.watch_type:
+                        existing_watches[idx] = watch
+                        return
+                # watch doesn't exist yet
+                self._watches[hashed_path].append(watch)
+            else:
+                self._watches[hashed_path] = [watch]
 
     def get(self) -> Optional[Tuple]:
         try:
@@ -174,7 +233,10 @@ class ResponseListener(Thread):
                 self._log.info(f"Connected with {addr}")
                 data = json.loads(conn.recv(1024).decode())
                 self._log.info(f"Received message: {data}")
-                self._event_queue.add_indirect_result(data)
+                if "watch-event" in data:
+                    self._event_queue.add_watch_notification(data)
+                else:
+                    self._event_queue.add_indirect_result(data)
         self._log.info(f"Close response listener thread on {self._public_addr}:{self._port}")
         self._socket.close()
         self._work_event.set()
@@ -233,6 +295,7 @@ class SubmitterThread(Thread):
     def run(self):
 
         self._log.info(f"Begin submission worker thread.")
+        listener_address = (self._response_handler.address, self._response_handler.port)
 
         while self._work_event.is_set():
 
@@ -259,8 +322,13 @@ class SubmitterThread(Thread):
                 else:
                     # FIXME launch on a pool - then it becomes expected result as well
                     try:
-                        res = self._provider_client.execute_request(request)
-                        self._event_queue.add_direct_result(req_id, res, future)
+                        # FIXME: every operation should return (res, watch)
+                        res = self._provider_client.execute_request(request, listener_address)
+                        if res is not None and len(res) > 0:
+                            self._event_queue.add_watch(request.path, res[1])
+                            self._event_queue.add_direct_result(req_id, res[0], future)
+                        else:
+                            self._event_queue.add_direct_result(req_id, res, future)
                     except Exception as e:
                         self._event_queue.add_direct_result(req_id, e, future)
             except ProviderException as e:
@@ -356,6 +424,13 @@ class SorterThread(Thread):
                 req_id, request, future, _ = futures.pop(0)
                 request.process_result(result, future)
                 processed_result = True
+            elif submission[0] == EventQueue.EventType.WATCH_NOTIFICATION:
+
+                # FIXME: ordering
+                watch = submission[1]
+                event = submission[2]
+
+                watch.generate_message(event)
 
             # if we processed result, then timeout could not have happend
             if not processed_result:

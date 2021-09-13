@@ -1,5 +1,6 @@
+import logging
 from os.path import join
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import boto3
 from boto3.dynamodb.types import TypeDeserializer, TypeSerializer
@@ -19,6 +20,7 @@ from faaskeeper.watch import Watch, WatchCallbackType, WatchType
 class AWSClient(ProviderClient):
     def __init__(self, cfg: Config):
         super().__init__(cfg)
+        self._log = logging.getLogger("AWSClient")
         self._dynamodb = boto3.client("dynamodb", self._config.deployment_region)
         self._watch_table = f"faaskeeper-{self._config.deployment_name}-watch"
         self._type_serializer = TypeSerializer()
@@ -49,11 +51,14 @@ class AWSClient(ProviderClient):
                 f"faaskeeper-{self._config.deployment_name}-write-queue: {str(e)}"
             )
 
-    def get_data(self, path: str, watch: Optional[WatchCallbackType]) -> Node:
+    def get_data(
+        self, path: str, watch_callback: Optional[WatchCallbackType], listen_address: Tuple[str, int]
+    ) -> Tuple[Node, Optional[Watch]]:
         node = self._data_reader.get_data(path)
 
         if node is not None:
-            if watch:
+            watch: Optional[Watch] = None
+            if watch_callback:
                 """Watch registration.
                 If distributor processed an update between first and second read,
                 then we failed to set the watch.
@@ -63,12 +68,12 @@ class AWSClient(ProviderClient):
                 In any case, we didn't set a watch on correct, most recent
                 data.
                 """
-                watch = self.register_watch(node, WatchType.GET_DATA, watch)
+                watch = self.register_watch(node, WatchType.GET_DATA, watch_callback, listen_address)
                 second_read_node = self._data_reader.get_data(path)
                 if second_read_node is None or node.modified.system != second_read_node.modified.system:
                     raise WatchSetFailureException(path)
                 # FIXME: insert watch into queue
-            return node
+            return node, watch
         else:
             raise NodeDoesntExistException(path)
 
@@ -101,7 +106,9 @@ class AWSClient(ProviderClient):
                 f"faaskeeper-{self._config.deployment_name}-write-queue: {str(e)}"
             )
 
-    def register_watch(self, node: Node, watch_type: WatchType, watch: WatchCallbackType):
+    def register_watch(
+        self, node: Node, watch_type: WatchType, watch: WatchCallbackType, listen_address: Tuple[str, int]
+    ):
 
         item_names: Dict[WatchType, str] = {WatchType.GET_DATA: "getData"}
 
@@ -113,52 +120,68 @@ class AWSClient(ProviderClient):
         watch_name = item_names.get(watch_type)
         assert watch_name
         data_version = node.modified.system.sum
+        watch_data = self._type_serializer.serialize([[data_version, listen_address[0], listen_address[1]]])
 
         try:
-            ret = self._dynamodb.update_item(
+            self._dynamodb.update_item(
                 TableName=self._watch_table,
                 # path to the node
                 Key={"path": {"S": node.path}},
-                UpdateExpression=f"SET {watch_name} = list_append({watch_name}, :newItem)",
-                ExpressionAttributeValues={
-                    ":newItem": self._type_serializer.serialize([[data_version, "my_ip", 1000]])
-                },
-                ConditionExpression=f"attribute_exists({watch_name})",
+                UpdateExpression=f"SET {watch_name} = list_append(if_not_exists({watch_name}, :empty_list), :newItem)",
+                ExpressionAttributeValues={":newItem": watch_data, ":empty_list": {"L": []}},
                 ReturnValues="ALL_NEW",
                 ReturnConsumedCapacity="TOTAL",
             )
             # success, watch already exists
-            watch_id = self._type_deserializer.deserialize(ret["Attributes"][f"{watch_name}ID"])
-        except self._dynamodb.exceptions.ConditionalCheckFailedException:
+        except self._dynamodb.exceptions.ConditionalCheckFailedException as e:
+            self._log.error(f"Failed watch creation! Reason: {e}")
 
-            # watch doesn't exist yet!
+        return Watch(data_version, watch_type, watch)
+        # FIXME: disable until we verify that
+        # try:
+        #    ret = self._dynamodb.update_item(
+        #        TableName=self._watch_table,
+        #        # path to the node
+        #        Key={"path": {"S": node.path}},
+        #        UpdateExpression=f"SET {watch_name} = list_append({watch_name}, :newItem)",
+        #        ExpressionAttributeValues={
+        #            ":newItem": watch_data,
+        #        },
+        #        ConditionExpression=f"attribute_exists({watch_name})",
+        #        ReturnValues="ALL_NEW",
+        #        ReturnConsumedCapacity="TOTAL",
+        #    )
+        #    # success, watch already exists
+        #    watch_id = self._type_deserializer.deserialize(ret["Attributes"][f"{watch_name}ID"])
+        # except self._dynamodb.exceptions.ConditionalCheckFailedException:
 
-            # increase ephemeral counter
-            ret = self._dynamodb.update_item(
-                TableName=self._watch_table,
-                Key={"path": {"S": "epoch-counter"}},
-                UpdateExpression=f"ADD #D :inc",
-                ExpressionAttributeNames={"#D": "counter"},
-                ExpressionAttributeValues={":inc": {"N": "1"}},
-                ReturnValues="ALL_NEW",
-                ReturnConsumedCapacity="TOTAL",
-            )
-            new_value = ret["Attributes"]["counter"]
+        #    # watch doesn't exist yet!
 
-            # create the watch, but make sure that we don't overwrite
-            ret = self._dynamodb.update_item(
-                TableName=self._watch_table,
-                # path to the node
-                Key={"path": {"S": node.path}},
-                UpdateExpression=f"SET {watch_name}ID = :counter, {watch_name} = :newItem",
-                ExpressionAttributeValues={
-                    ":newItem": self._type_serializer.serialize([[data_version, "my_ip", 1000]]),
-                    ":counter": new_value,
-                },
-                ConditionExpression=f"attribute_not_exists({watch_name})",
-                ReturnValues="ALL_NEW",
-                ReturnConsumedCapacity="TOTAL",
-            )
-            watch_id = self._type_deserializer.deserialize(new_value)
+        #    # increase ephemeral counter
+        #    #ret = self._dynamodb.update_item(
+        #    #    TableName=self._watch_table,
+        #    #    Key={"path": {"S": "epoch-counter"}},
+        #    #    UpdateExpression=f"ADD #D :inc",
+        #    #    ExpressionAttributeNames={"#D": "counter"},
+        #    #    ExpressionAttributeValues={":inc": {"N": "1"}},
+        #    #    ReturnValues="ALL_NEW",
+        #    #    ReturnConsumedCapacity="TOTAL",
+        #    #)
+        #    #new_value = ret["Attributes"]["counter"]
 
-        return Watch(watch_id, watch_type)
+        #    # create the watch, but make sure that we don't overwrite
+        #    ret = self._dynamodb.update_item(
+        #        TableName=self._watch_table,
+        #        # path to the node
+        #        Key={"path": {"S": node.path}},
+        #        #UpdateExpression=f"SET {watch_name}ID = :counter, {watch_name} = :newItem",
+        #        UpdateExpression=f"SET {watch_name} = :newItem",
+        #        ExpressionAttributeValues={
+        #            ":newItem": watch_data,
+        #            #":counter": new_value,
+        #        },
+        #        ConditionExpression=f"attribute_not_exists({watch_name})",
+        #        ReturnValues="ALL_NEW",
+        #        ReturnConsumedCapacity="TOTAL",
+        #    )
+        #    watch_id = self._type_deserializer.deserialize(new_value)

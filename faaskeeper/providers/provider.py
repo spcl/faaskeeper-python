@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from faaskeeper.config import Config
 from faaskeeper.node import Node
@@ -10,7 +10,7 @@ from faaskeeper.operations import (
     GetData,
     RegisterSession,
 )
-from faaskeeper.watch import WatchCallbackType, WatchType
+from faaskeeper.watch import Watch, WatchCallbackType, WatchType
 
 
 class ProviderClient(ABC):
@@ -18,7 +18,9 @@ class ProviderClient(ABC):
         self._config = cfg
 
     @abstractmethod
-    def get_data(self, path: str, watch: Optional[WatchCallbackType]) -> Node:
+    def get_data(
+        self, path: str, watch: Optional[WatchCallbackType], listen_address: Tuple[str, int]
+    ) -> Tuple[Node, Optional[Watch]]:
         pass
 
     @abstractmethod
@@ -34,12 +36,14 @@ class ProviderClient(ABC):
         pass
 
     @abstractmethod
-    def register_watch(self, node: Node, watch_type: WatchType, watch: WatchCallbackType):
+    def register_watch(
+        self, node: Node, watch_type: WatchType, watch: WatchCallbackType, listen_address: Tuple[str, int]
+    ) -> Watch:
         pass
 
-    def execute_request(self, op: DirectOperation):
+    def execute_request(self, op: DirectOperation, listen_address: Tuple[str, int]):
         if isinstance(op, GetData):
-            return self.get_data(op.path, op.watch)
+            return self.get_data(op.path, op.watch, listen_address)
         elif isinstance(op, ExistsNode):
             return self.exists(op.path)
         elif isinstance(op, GetChildren):
