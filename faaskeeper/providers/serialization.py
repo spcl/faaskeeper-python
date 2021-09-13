@@ -81,6 +81,7 @@ class S3Reader(DataReader):
         data += struct.pack(format_string, *[y for x in zip(children_lengths, children) for y in x])
         return data + node.data
 
+    @staticmethod
     def deserialize(path: str, data: bytes, include_data: bool = True, include_children: bool = True) -> Node:
 
         # parse DynamoDB storage of node data and counter values
