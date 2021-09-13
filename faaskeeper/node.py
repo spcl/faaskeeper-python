@@ -39,6 +39,7 @@ class Node:
     def children(self, children: List[str]):
         self._children = children
 
+    @property
     def has_children(self) -> bool:
         return self._children is not None
 
