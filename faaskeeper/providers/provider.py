@@ -10,6 +10,7 @@ from faaskeeper.operations import (
     GetData,
     RegisterSession,
 )
+from faaskeeper.watch import WatchCallbackType, WatchType
 
 
 class ProviderClient(ABC):
@@ -17,7 +18,7 @@ class ProviderClient(ABC):
         self._config = cfg
 
     @abstractmethod
-    def get_data(self, path: str) -> Node:
+    def get_data(self, path: str, watch: Optional[WatchCallbackType]) -> Node:
         pass
 
     @abstractmethod
@@ -32,9 +33,13 @@ class ProviderClient(ABC):
     def register_session(self, session_id: str, sourceAddr: str, heartbeat: bool):
         pass
 
+    @abstractmethod
+    def register_watch(self, node: Node, watch_type: WatchType, watch: WatchCallbackType):
+        pass
+
     def execute_request(self, op: DirectOperation):
         if isinstance(op, GetData):
-            return self.get_data(op.path)
+            return self.get_data(op.path, op.watch)
         elif isinstance(op, ExistsNode):
             return self.exists(op.path)
         elif isinstance(op, GetChildren):

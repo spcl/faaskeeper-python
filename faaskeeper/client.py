@@ -28,6 +28,7 @@ from faaskeeper.queue import (
     WorkQueue,
 )
 from faaskeeper.threading import Future
+from faaskeeper.watch import WatchCallbackType
 
 
 class FaaSKeeperClient:
@@ -219,19 +220,17 @@ class FaaSKeeperClient:
         )
         return future
 
-    # FIXME: add watch
     # FIXME: document exceptions
-    def get_data(self, path: str) -> Node:
+    def get_data(self, path: str, watch: Optional[WatchCallbackType] = None) -> Node:
         """Retrieve user data from a node.
 
         :param path: node path
         :returns: user data as bytes
         """
-        return self.get_data_async(path).get()
+        return self.get_data_async(path, watch).get()
 
-    # FIXME: add watch
     # FIXME: document exceptions
-    def get_data_async(self, path: str) -> Future:
+    def get_data_async(self, path: str, watch: Optional[WatchCallbackType] = None) -> Future:
         """Retrieve user data in an asynchronous mode.
 
         :param path: node path
@@ -242,7 +241,7 @@ class FaaSKeeperClient:
         future = Future()
         assert self.session_id
         self._work_queue.add_request(
-            GetData(session_id=self.session_id, path=path), future,
+            GetData(session_id=self.session_id, path=path, watch=watch), future,
         )
         return future
 

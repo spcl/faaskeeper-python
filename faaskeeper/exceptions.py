@@ -35,6 +35,14 @@ class TimeoutException(FaaSKeeperException):
         super().__init__(f"Operation timed out after {time} [s]!")
 
 
+class WatchSetFailureException(FaaSKeeperException):
+    """Describes failed watch set because of an update that happened in between.
+    """
+
+    def __init__(self, path: str):
+        super().__init__(f"Failed to set a watch on node: {path}!")
+
+
 class AWSException(ProviderException):
     """Generic exception describing a problem signaled by the AWS services.
     """

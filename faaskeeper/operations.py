@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Optional
 
 from faaskeeper.exceptions import (
     BadVersionError,
@@ -11,6 +12,7 @@ from faaskeeper.exceptions import (
 from faaskeeper.node import Node
 from faaskeeper.threading import Future
 from faaskeeper.version import SystemCounter, Version
+from faaskeeper.watch import WatchCallbackType
 
 
 class Operation(ABC):
@@ -67,11 +69,16 @@ class DirectOperation(Operation):
     :param path: path of target node
     """
 
-    def __init__(self, session_id: str, path: str):
+    def __init__(self, session_id: str, path: str, watch: Optional[WatchCallbackType] = None):
         super().__init__(session_id, path)
+        self._watch = watch
 
     def is_cloud_request(self) -> bool:
         return False
+
+    @property
+    def watch(self) -> Optional[WatchCallbackType]:
+        return self._watch
 
 
 class CreateNode(RequestOperation):
@@ -182,8 +189,8 @@ class DeleteNode(RequestOperation):
 
 
 class GetData(DirectOperation):
-    def __init__(self, session_id: str, path: str):
-        super().__init__(session_id, path)
+    def __init__(self, session_id: str, path: str, watch: Optional[WatchCallbackType] = None):
+        super().__init__(session_id, path, watch)
 
     @property
     def name(self) -> str:
