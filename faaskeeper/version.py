@@ -1,7 +1,7 @@
 from functools import total_ordering
 from typing import Dict, List, Optional, Set
 
-from boto3.dynamodb.types import TypeDeserializer
+from boto3.dynamodb.types import TypeDeserializer, TypeSerializer
 
 
 class AWSDecoder:
@@ -91,6 +91,7 @@ class SystemCounter:
 class EpochCounter:
 
     _type_deserializer = TypeDeserializer()
+    _type_serializer = TypeSerializer()
 
     """
         The epoch counter is a set of non-duplicated integer values.
@@ -111,7 +112,9 @@ class EpochCounter:
 
     @property
     def version(self) -> dict:
-        assert self._provider_data
+        # FIXME: this should be hidden under abstraction
+        if self._provider_data is None:
+            self._provider_data = EpochCounter._type_serializer.serialize(self._version)
         return self._provider_data
 
     # JSON cannot accept a set
