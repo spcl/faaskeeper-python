@@ -1,5 +1,7 @@
 from functools import total_ordering
-from typing import List, Optional, Set
+from typing import Dict, List, Optional, Set
+
+from boto3.dynamodb.types import TypeDeserializer
 
 
 class AWSDecoder:
@@ -88,12 +90,14 @@ class SystemCounter:
 
 class EpochCounter:
 
+    _type_deserializer = TypeDeserializer()
+
     """
         The epoch counter is a set of non-duplicated integer values.
         Each one corresponds to a watch invocation.
     """
 
-    def __init__(self, provider_data: Optional[dict], version: Optional[Set[int]]):
+    def __init__(self, provider_data: Optional[dict], version: Optional[Set[str]]):
         self._provider_data = provider_data
         self._version = version
 
@@ -102,7 +106,7 @@ class EpochCounter:
         return EpochCounter(provider_data, None)
 
     @staticmethod
-    def from_raw_data(counter_data: Set[int]):
+    def from_raw_data(counter_data: Set[str]):
         return EpochCounter(None, counter_data)
 
     @property
@@ -111,10 +115,11 @@ class EpochCounter:
         return self._provider_data
 
     # JSON cannot accept a set
-    def serialize(self) -> List[int]:
+    def serialize(self) -> List[str]:
         if self._version is None:
             assert self._provider_data is not None
-            self._version = set(AWSDecoder._decode_aws_schema(self._provider_data))
+            self._version = set(EpochCounter._type_deserializer.deserialize(self._provider_data))
+            # self._version = set(AWSDecoder._decode_aws_schema(self._provider_data))
         return list(self._version)
 
 
@@ -150,7 +155,7 @@ class Version:
         self._epoch = val
 
     def serialize(self) -> dict:
-        sys = {"system": self._system.serialize()}
+        sys: Dict[str, list] = {"system": self._system.serialize()}
         if self._epoch is not None:
             sys["epoch"] = self._epoch.serialize()
         return sys
