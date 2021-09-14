@@ -255,7 +255,9 @@ class ResponseListener(Thread):
                 self._log.info(f"Connected with {addr}")
                 data = json.loads(conn.recv(1024).decode())
                 self._log.info(f"Received message: {data}")
-                if "watch-event" in data:
+                if "type" in data and data["type"] == "heartbeat":
+                    conn.sendall(json.dumps({"status": "alive"}).encode())
+                elif "watch-event" in data:
                     self._event_queue.add_watch_notification(data)
                 else:
                     self._event_queue.add_indirect_result(data)
