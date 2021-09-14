@@ -111,11 +111,12 @@ class EpochCounter:
         return EpochCounter(None, counter_data)
 
     @property
-    def version(self) -> dict:
-        # FIXME: this should be hidden under abstraction
-        if self._provider_data is None:
-            self._provider_data = EpochCounter._type_serializer.serialize(self._version)
+    def provider_data(self) -> Optional[dict]:
         return self._provider_data
+
+    @property
+    def version(self) -> Optional[Set[str]]:
+        return self._version
 
     # JSON cannot accept a set
     def serialize(self) -> List[str]:
