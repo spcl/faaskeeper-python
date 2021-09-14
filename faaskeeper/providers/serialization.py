@@ -104,8 +104,8 @@ class S3Reader(DataReader):
         sys = SystemCounter.from_raw_data(cast(List[int], counter_data[begin:end]))
         begin = end + 1
         end = begin + counter_data[begin - 1]
-        epoch = EpochCounter.from_raw_data(set(counter_data[begin:end]))
-        n.created = Version(sys, epoch)
+        # epoch = EpochCounter.from_raw_data(set(counter_data[begin:end]))
+        n.created = Version(sys, None)
 
         # read 'modified' counter
         begin = end + 1
@@ -222,7 +222,7 @@ class DynamoReader(DataReader):
         n = Node(path)
         n.created = Version(
             SystemCounter.from_provider_schema(ret["Item"]["cFxidSys"]),
-            EpochCounter.from_provider_schema(ret["Item"]["cFxidEpoch"]),
+            None
         )
         n.modified = Version(
             SystemCounter.from_provider_schema(ret["Item"]["mFxidSys"]),

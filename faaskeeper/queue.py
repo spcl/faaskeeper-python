@@ -408,7 +408,7 @@ class SorterThread(Thread):
             # we have a direct result
             elif submission[0] == EventQueue.EventType.CLOUD_DIRECT_RESULT:
                 req_id, result, future = submission[1:]
-                # FIXME: enforce ordering
+                # FIXME: enforce ordering - watches
                 if isinstance(result, Exception):
                     future.set_exception(result)
                 else:
