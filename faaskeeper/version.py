@@ -116,6 +116,9 @@ class EpochCounter:
 
     @property
     def version(self) -> Optional[Set[str]]:
+        if self._version is None:
+            assert self._provider_data is not None
+            self._version = set(EpochCounter._type_deserializer.deserialize(self._provider_data))
         return self._version
 
     # JSON cannot accept a set

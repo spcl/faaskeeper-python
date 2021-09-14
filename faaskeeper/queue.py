@@ -142,6 +142,28 @@ class EventQueue:
             else:
                 self._watches[hashed_path] = [watch]
 
+    # FIXME: find by watch type?
+    # get only watches older than timestamp - avoid getting watch that we
+    # just set a moment ago
+    def get_watches(self, paths: List[str], timestamp: int) -> List[Watch]:
+        if self._closing:
+            raise SessionClosingException()
+
+        # verify that we don't replace watches
+        watches = []
+        with self._watches_lock:
+            for p in paths:
+                existing_watches = self._watches.get(p, [])
+                watches_removed = 0
+                for w in existing_watches:
+                    if w.timestamp < timestamp:
+                        watches.append(w)
+                        watches_removed += 1
+                # FIXME: partial removal
+                if watches_removed == len(existing_watches):
+                    self._watches.pop(p, None)
+        return watches
+
     def get(self) -> Optional[Tuple]:
         try:
             return self._queue.get(block=True, timeout=0.5)
@@ -402,12 +424,30 @@ class SorterThread(Thread):
                 self._check_timeout(futures)
                 continue
 
+            # FIXME: watches should be handled in a different data structure
             # we received result
             if submission[0] == EventQueue.EventType.CLOUD_EXPECTED_RESULT:
                 futures.append((*submission[1:], datetime.now().timestamp()))
             # we have a direct result
             elif submission[0] == EventQueue.EventType.CLOUD_DIRECT_RESULT:
                 req_id, result, future = submission[1:]
+                # FIXME - exists should always return node (fix implementation!)
+                # FIXME - get_children should return the parent (fix implementation!)
+                if result is not None and isinstance(result, Node):
+                    timestamp = result.modified.system.sum
+                    watches = self._queue.get_watches([hashlib.md5(result.path.encode()).hexdigest()], timestamp)
+                    # we have watch on ourself
+                    for w in watches:
+                        # FIXME: Move to some library
+                        w.generate_message(WatchedEvent(WatchEventType.NODE_DATA_CHANGED, result.path, timestamp))
+                    # read watches from epoch
+                    paths = []
+                    # FIXME: hide under abstraction of epoch
+                    for p in result.modified.epoch.version:
+                        paths.append(p.split("_")[0])
+                    watches = self._queue.get_watches(paths, timestamp)
+                    # FIXME: stall read
+
                 # FIXME: enforce ordering - watches
                 if isinstance(result, Exception):
                     future.set_exception(result)

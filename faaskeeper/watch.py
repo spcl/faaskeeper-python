@@ -61,3 +61,7 @@ class Watch:
     @property
     def watch_type(self) -> "WatchType":
         return self._watch_type
+
+    @property
+    def timestamp(self) -> int:
+        return self._timestamp
