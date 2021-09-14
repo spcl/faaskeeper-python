@@ -1,7 +1,7 @@
 import struct
 from abc import ABC, abstractmethod
 from functools import reduce
-from typing import List, Optional, Set, cast
+from typing import Optional
 
 import boto3
 from boto3.dynamodb.types import TypeDeserializer
@@ -50,35 +50,46 @@ class S3Reader(DataReader):
         """
 
         created_system = node.created.system.serialize()
-        created_epoch: Set[int] = set()
         modified_system = node.modified.system.serialize()
-        modified_epoch: Set[int] = set()
+        assert node.modified.epoch
+        epoch_set = node.modified.epoch.version
+        if epoch_set is None:
+            epoch_set = set()
+        epoch = [x.encode() for x in epoch_set]
+        epoch_lengths = [len(x) for x in epoch]
+
         children = [x.encode() for x in node.children]
         children_lengths = [len(x) for x in children]
 
         # first pack counters
-        counters = [created_system, created_epoch, modified_system, modified_epoch]
+        counters = [created_system, modified_system]
         total_length = reduce(lambda a, b: a + b, map(len, counters))
         data = struct.pack(
-            f"<{5+total_length+2}I",
-            4 * (5 + total_length + 2) + 4 * len(children) + sum(children_lengths),
-            4 + total_length,
+            f"<{4+total_length+1}I",
+            4 * (4 + total_length + 2)
+            + 4 * len(epoch)
+            + sum(epoch_lengths)
+            + 4 * len(children)
+            + sum(children_lengths),
+            3 + total_length,
             len(created_system),
             *created_system,
-            len(created_epoch),
-            *created_epoch,
             len(modified_system),
             *modified_system,
-            len(modified_epoch),
-            *modified_epoch,
-            len(children),
+            len(epoch),
         )
 
-        # now pack strings
+        # now pack epoch
         format_string = "<"
+        for e in epoch:
+            format_string += f"1I{len(e)}s"
+        data += struct.pack(format_string, *[y for x in zip(epoch_lengths, epoch) for y in x])
+
+        # now pack strings
+        format_string = "<I"
         for child in children:
             format_string += f"1I{len(child)}s"
-        data += struct.pack(format_string, *[y for x in zip(children_lengths, children) for y in x])
+        data += struct.pack(format_string, len(children), *[y for x in zip(children_lengths, children) for y in x])
         return data + node.data
 
     @staticmethod
@@ -101,19 +112,26 @@ class S3Reader(DataReader):
         # first pos is counter length, then counter data
         begin = 1
         end = begin + counter_data[0]
-        sys = SystemCounter.from_raw_data(cast(List[int], counter_data[begin:end]))
-        begin = end + 1
-        end = begin + counter_data[begin - 1]
-        # epoch = EpochCounter.from_raw_data(set(counter_data[begin:end]))
+        sys = SystemCounter.from_raw_data(list(counter_data[begin:end]))
         n.created = Version(sys, None)
 
         # read 'modified' counter
         begin = end + 1
         end = begin + counter_data[begin - 1]
-        sys = SystemCounter.from_raw_data(cast(List[int], counter_data[begin:end]))
-        begin = end + 1
-        end = begin + counter_data[begin - 1]
-        epoch = EpochCounter.from_raw_data(set(counter_data[begin:end]))
+        sys = SystemCounter.from_raw_data(list(counter_data[begin:end]))
+
+        # load epoch counter
+        # offset now points at the end of counter data
+        epoch_length = counter_data[-1]
+        epoch_data = set()
+        # read encoded strings
+        for i in range(epoch_length):
+            str_len = struct.unpack_from("<I", data, offset=offset)[0]
+            offset += struct.calcsize(f"<I")
+            string_data = struct.unpack_from(f"<{str_len}s", data, offset=offset)[0]
+            offset += struct.calcsize(f"<{str_len}s")
+            epoch_data.add(string_data.decode())
+        epoch = EpochCounter.from_raw_data(epoch_data)
         n.modified = Version(sys, epoch)
 
         if include_children:
@@ -220,10 +238,7 @@ class DynamoReader(DataReader):
 
         # parse DynamoDB storage of node data and counter values
         n = Node(path)
-        n.created = Version(
-            SystemCounter.from_provider_schema(ret["Item"]["cFxidSys"]),
-            None
-        )
+        n.created = Version(SystemCounter.from_provider_schema(ret["Item"]["cFxidSys"]), None)
         n.modified = Version(
             SystemCounter.from_provider_schema(ret["Item"]["mFxidSys"]),
             EpochCounter.from_provider_schema(ret["Item"]["mFxidEpoch"]),
