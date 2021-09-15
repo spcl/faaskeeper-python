@@ -349,7 +349,8 @@ class SubmitterThread(Thread):
                         # FIXME: every operation should return (res, watch)
                         res = self._provider_client.execute_request(request, listener_address)
                         if res is not None and len(res) > 0:
-                            self._event_queue.add_watch(request.path, res[1])
+                            if res[1]:
+                                self._event_queue.add_watch(request.path, res[1])
                             self._event_queue.add_direct_result(req_id, res[0], future)
                         else:
                             self._event_queue.add_direct_result(req_id, res, future)
