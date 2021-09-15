@@ -16,6 +16,7 @@ class StorageStatistics:
     def instance():
         if StorageStatistics._instance is None:
             StorageStatistics._instance = StorageStatistics()
+        return StorageStatistics._instance
 
     @property
     def read_units(self) -> int:
