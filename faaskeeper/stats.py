@@ -12,6 +12,7 @@ class StorageStatistics:
         self._read_units = 0
         self._write_units = 0
         self._read_times: List[float] = []
+        self._write_times: List[float] = []
 
     @staticmethod
     def instance():
@@ -39,3 +40,10 @@ class StorageStatistics:
 
     def add_read_time(self, val: float):
         self._read_times.append(val)
+
+    @property
+    def write_times(self) -> List[float]:
+        return self._write_times
+
+    def add_write_time(self, val: float):
+        self._write_times.append(val)

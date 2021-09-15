@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, timedelta
 from os.path import join
 from typing import Dict, List, Optional, Tuple, Union
 
@@ -16,6 +17,8 @@ from faaskeeper.providers.provider import ProviderClient
 from faaskeeper.providers.serialization import DataReader, DynamoReader, S3Reader
 from faaskeeper.stats import StorageStatistics
 from faaskeeper.watch import Watch, WatchCallbackType, WatchType
+
+BENCHMARKING = True
 
 
 class AWSClient(ProviderClient):
@@ -42,12 +45,16 @@ class AWSClient(ProviderClient):
             import uuid
 
             # FIXME: check return value
+            begin = datetime.now()
             ret = self._dynamodb.put_item(
                 TableName=f"faaskeeper-{self._config.deployment_name}-write-queue",
                 Item=DynamoReader._convert_items({**data, "key": f"{str(uuid.uuid4())[0:4]}", "timestamp": request_id}),
                 ReturnConsumedCapacity="TOTAL",
             )
-            StorageStatistics.instance().add_write_units(ret["ConsumedCapacity"]["CapacityUnits"])
+            end = datetime.now()
+            if BENCHMARKING:
+                StorageStatistics.instance().add_write_time(int((end - begin) / timedelta(microseconds=1)))
+                StorageStatistics.instance().add_write_units(ret["ConsumedCapacity"]["CapacityUnits"])
         except Exception as e:
             raise AWSException(
                 f"Failure on AWS client on DynamoDB table "
