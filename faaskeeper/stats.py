@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import List, Optional
 
 
 class StorageStatistics:
@@ -11,6 +11,7 @@ class StorageStatistics:
     def reset(self):
         self._read_units = 0
         self._write_units = 0
+        self._read_times: List[float] = []
 
     @staticmethod
     def instance():
@@ -31,3 +32,10 @@ class StorageStatistics:
 
     def add_write_units(self, val: int):
         self._write_units += val
+
+    @property
+    def read_times(self) -> List[float]:
+        return self._read_times
+
+    def add_read_times(self, val: float):
+        self._read_times.append(val)

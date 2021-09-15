@@ -1,5 +1,6 @@
 import struct
 from abc import ABC, abstractmethod
+from datetime import datetime, timedelta
 from functools import reduce
 from typing import Optional
 
@@ -11,6 +12,9 @@ from faaskeeper.exceptions import AWSException
 from faaskeeper.node import Node
 from faaskeeper.stats import StorageStatistics
 from faaskeeper.version import EpochCounter, SystemCounter, Version
+
+# FIXME: global config
+BENCHMARKING = True
 
 
 class DataReader(ABC):
@@ -163,8 +167,13 @@ class S3Reader(DataReader):
     def get_data(self, path: str, include_data: bool = True, include_children: bool = True) -> Optional[Node]:
 
         try:
+
+            begin = datetime.now()
             obj = self._s3.get_object(Bucket=self._storage_name, Key=path)
             data = obj["Body"].read()
+            end = datetime.now()
+            if BENCHMARKING:
+                StorageStatistics.instance().add_read_time(int((end - begin) / timedelta(microseconds=1)))
 
             return self.deserialize(path, data, include_data, include_children)
         except self._s3.exceptions.NoSuchKey:
