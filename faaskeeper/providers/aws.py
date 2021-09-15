@@ -14,6 +14,7 @@ from faaskeeper.exceptions import (
 from faaskeeper.node import Node
 from faaskeeper.providers.provider import ProviderClient
 from faaskeeper.providers.serialization import DataReader, DynamoReader, S3Reader
+from faaskeeper.stats import StorageStatistics
 from faaskeeper.watch import Watch, WatchCallbackType, WatchType
 
 
@@ -41,10 +42,12 @@ class AWSClient(ProviderClient):
             import uuid
 
             # FIXME: check return value
-            self._dynamodb.put_item(
+            ret = self._dynamodb.put_item(
                 TableName=f"faaskeeper-{self._config.deployment_name}-write-queue",
                 Item=DynamoReader._convert_items({**data, "key": f"{str(uuid.uuid4())[0:4]}", "timestamp": request_id}),
+                ReturnConsumedCapacity="TOTAL",
             )
+            StorageStatistics.instance().add_write_units(ret["ConsumedCapacity"]["CapacityUnits"])
         except Exception as e:
             raise AWSException(
                 f"Failure on AWS client on DynamoDB table "
@@ -123,7 +126,7 @@ class AWSClient(ProviderClient):
         watch_data = self._type_serializer.serialize([[data_version, listen_address[0], listen_address[1]]])
 
         try:
-            self._dynamodb.update_item(
+            ret = self._dynamodb.update_item(
                 TableName=self._watch_table,
                 # path to the node
                 Key={"path": {"S": node.path}},
@@ -132,6 +135,7 @@ class AWSClient(ProviderClient):
                 ReturnValues="ALL_NEW",
                 ReturnConsumedCapacity="TOTAL",
             )
+            StorageStatistics.instance().add_write_units(ret["ConsumedCapacity"]["CapacityUnits"])
             # success, watch already exists
         except self._dynamodb.exceptions.ConditionalCheckFailedException as e:
             self._log.error(f"Failed watch creation! Reason: {e}")

@@ -9,6 +9,7 @@ from boto3.dynamodb.types import TypeDeserializer
 from faaskeeper.config import Config
 from faaskeeper.exceptions import AWSException
 from faaskeeper.node import Node
+from faaskeeper.stats import StorageStatistics
 from faaskeeper.version import EpochCounter, SystemCounter, Version
 
 
@@ -229,6 +230,7 @@ class DynamoReader(DataReader):
                 ReturnConsumedCapacity="TOTAL",
                 AttributesToGet=AttributesToGet,
             )
+            StorageStatistics.instance().add_read_units(ret["ConsumedCapacity"]["CapacityUnits"])
         except Exception as e:
             raise AWSException(
                 f"Failure on AWS client on DynamoDB table faaskeeper-{self._config.deployment_name}-data: {str(e)}"
