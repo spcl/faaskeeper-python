@@ -37,5 +37,5 @@ class StorageStatistics:
     def read_times(self) -> List[float]:
         return self._read_times
 
-    def add_read_times(self, val: float):
+    def add_read_time(self, val: float):
         self._read_times.append(val)
