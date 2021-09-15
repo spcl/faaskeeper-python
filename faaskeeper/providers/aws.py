@@ -61,7 +61,7 @@ class AWSClient(ProviderClient):
 
         if node is not None:
             watch: Optional[Watch] = None
-            if watch_callback:
+            if watch_callback is not None:
                 """Watch registration.
                 If distributor processed an update between first and second read,
                 then we failed to set the watch.
