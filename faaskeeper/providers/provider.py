@@ -24,11 +24,11 @@ class ProviderClient(ABC):
         pass
 
     @abstractmethod
-    def exists(self, path: str) -> Optional[Node]:
+    def exists(self, path: str) -> Tuple[Optional[Node], Optional[Watch]]:
         pass
 
     @abstractmethod
-    def get_children(self, path: str, include_data: bool) -> List[Node]:
+    def get_children(self, path: str, include_data: bool) -> Tuple[List[Node], Optional[Watch]]:
         pass
 
     @abstractmethod

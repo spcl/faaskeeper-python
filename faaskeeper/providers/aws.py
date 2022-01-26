@@ -87,18 +87,21 @@ class AWSClient(ProviderClient):
         else:
             raise NodeDoesntExistException(path)
 
-    def exists(self, path: str) -> Optional[Node]:
-        return self._data_reader.get_data(path, include_data=False, include_children=False)
+    def exists(self, path: str) -> Tuple[Optional[Node], Optional[Watch]]:
+        node = self._data_reader.get_data(path, include_data=False, include_children=False)
+        # FIXME: register a watch
+        return node, None
 
-    def get_children(self, path: str, include_data: bool) -> List[Node]:
+    def get_children(self, path: str, include_data: bool) -> Tuple[List[Node], Optional[Watch]]:
         node = self._data_reader.get_data(path, include_data=False)
+        # FIXME: register a watch
         assert node
         children = []
         for child in node.children:
             n = self._data_reader.get_data(join(path, child), include_data=include_data)
             if n is not None:
                 children.append(n)
-        return children
+        return children, None
 
     def register_session(self, session_id: str, source_addr: str, heartbeat: bool):
 
