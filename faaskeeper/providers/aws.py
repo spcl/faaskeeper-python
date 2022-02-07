@@ -39,8 +39,9 @@ class AWSClient(ProviderClient):
         else:
             raise NotImplementedError()
         self._msg_id = 0
+        self._queue_name = f"faaskeeper-{self._config.deployment_name}-writer-sqs.fifo"
         response = self._sqs_client.get_queue_url(                                   
-            QueueName='FAASKEEPER_WRITER_QUEUE.fifo'
+            QueueName=self._queue_name
         )                                                                      
         self._sqs_queue_url = response['QueueUrl']       
 
@@ -66,7 +67,6 @@ class AWSClient(ProviderClient):
                 binary_data = b''
                 attributes = {}
             payload = DynamoReader._convert_items(data)
-            print(payload)
             response = self._sqs_client.send_message(                                        
                 QueueUrl=self._sqs_queue_url,
                 MessageBody=json.dumps(payload),
@@ -75,7 +75,6 @@ class AWSClient(ProviderClient):
                 MessageDeduplicationId=request_id
             )
             end = datetime.now()
-            print(response)
             if BENCHMARKING:
                 StorageStatistics.instance().add_write_time(int((end - begin) / timedelta(microseconds=1)))
             ## FIXME: check return value
