@@ -1,3 +1,4 @@
+import base64
 from enum import Enum
 from typing import List, Optional
 
@@ -22,6 +23,7 @@ class Node:
     def __init__(self, path: str):
         self._path = path
         self._data: Optional[bytes] = None
+        self._data_b64: Optional[str] = None
         self._children: Optional[List[str]] = None
         self._created_version: Optional[Version] = None
         self._modified_version: Optional[Version] = None
@@ -49,12 +51,24 @@ class Node:
 
     @property
     def data(self) -> bytes:
-        assert self._data is not None
-        return self._data
+        if self._data is None:
+            assert self._data_b64 is not None
+            return base64.b64decode(self._data_b64)
+        else:
+            return self._data
 
     @data.setter
     def data(self, data: bytes):
         self._data = data
+
+    @property
+    def data_b64(self) -> str:
+        assert self._data_b64 is not None
+        return self._data_b64
+
+    @data_b64.setter
+    def data_b64(self, data: str):
+        self._data_b64 = data
 
     @property
     def has_created(self) -> bool:
