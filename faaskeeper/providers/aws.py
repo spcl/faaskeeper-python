@@ -15,7 +15,7 @@ from faaskeeper.exceptions import (
 )
 from faaskeeper.node import Node
 from faaskeeper.providers.provider import ProviderClient
-from faaskeeper.providers.serialization import DataReader, DynamoReader, S3Reader
+from faaskeeper.providers.serialization import DataReader, DynamoReader, S3Reader, RedisReader
 from faaskeeper.stats import StorageStatistics
 from faaskeeper.watch import Watch, WatchCallbackType, WatchType
 
@@ -37,6 +37,8 @@ class AWSClient(ProviderClient):
             self._data_reader = S3Reader(cfg)
         elif cfg.user_storage == StorageType.KEY_VALUE:
             self._data_reader = DynamoReader(self._dynamodb, cfg)
+        elif cfg.user_storage == StorageType.REDIS:
+            self._data_reader = RedisReader(cfg)
         else:
             raise NotImplementedError()
 

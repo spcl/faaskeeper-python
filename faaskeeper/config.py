@@ -4,11 +4,11 @@ from enum import Enum
 class StorageType(Enum):
     PERSISTENT = 0
     KEY_VALUE = 1
-    IN_MEMORY = 2
+    REDIS = 2
 
     @staticmethod
     def deserialize(val: str) -> "StorageType":
-        return {"persistent": StorageType.PERSISTENT, "key-value": StorageType.KEY_VALUE}[val]
+        return {"persistent": StorageType.PERSISTENT, "key-value": StorageType.KEY_VALUE, "redis": StorageType.REDIS}[val]
 
 
 class QueueType(Enum):
