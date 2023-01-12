@@ -90,7 +90,7 @@ class CreateNode(RequestOperation):
         return {
             "op": "create_node",
             "path": self._path,
-            "user": self._session_id,
+            "session_id": self._session_id,
             "version": -1,
             "flags": 0,
             "data": self._value,
@@ -127,7 +127,7 @@ class SetData(RequestOperation):
         return {
             "op": self.name,
             "path": self._path,
-            "user": self._session_id,
+            "session_id": self._session_id,
             "data": self._value,
             "version": self._version,
         }
@@ -162,7 +162,7 @@ class DeleteNode(RequestOperation):
         return {
             "op": self.name,
             "path": self._path,
-            "user": self._session_id,
+            "session_id": self._session_id,
             "version": self._version,
         }
 
