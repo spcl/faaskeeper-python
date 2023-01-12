@@ -7,7 +7,7 @@ from typing import Dict, List, Optional, Tuple, Union
 import boto3
 from boto3.dynamodb.types import TypeDeserializer, TypeSerializer
 
-from faaskeeper.config import Config, StorageType
+from faaskeeper.config import Config, QueueType, StorageType
 from faaskeeper.exceptions import (
     AWSException,
     NodeDoesntExistException,
@@ -25,23 +25,31 @@ BENCHMARKING = True
 class AWSClient(ProviderClient):
     def __init__(self, cfg: Config):
         super().__init__(cfg)
+        self._cfg = cfg
         self._log = logging.getLogger("AWSClient")
         self._dynamodb = boto3.client("dynamodb", self._config.deployment_region)
-        self._sqs_client = boto3.client("sqs", self._config.deployment_region)
         self._watch_table = f"faaskeeper-{self._config.deployment_name}-watch"
         self._type_serializer = TypeSerializer()
         self._type_deserializer = TypeDeserializer()
         self._data_reader: DataReader
+
         if cfg.user_storage == StorageType.PERSISTENT:
             self._data_reader = S3Reader(cfg)
         elif cfg.user_storage == StorageType.KEY_VALUE:
             self._data_reader = DynamoReader(self._dynamodb, cfg)
         else:
             raise NotImplementedError()
-        self._msg_id = 0
-        self._queue_name = f"faaskeeper-{self._config.deployment_name}-writer-sqs.fifo"
-        response = self._sqs_client.get_queue_url(QueueName=self._queue_name)
-        self._sqs_queue_url = response["QueueUrl"]
+
+        if cfg.writer_queue == QueueType.DYNAMODB:
+            pass
+        elif cfg.writer_queue == QueueType.SQS:
+            self._msg_id = 0
+            self._queue_name = f"faaskeeper-{self._config.deployment_name}-writer-sqs.fifo"
+            self._sqs_client = boto3.client("sqs", self._config.deployment_region)
+            response = self._sqs_client.get_queue_url(QueueName=self._queue_name)
+            self._sqs_queue_url = response["QueueUrl"]
+        else:
+            raise NotImplementedError()
 
     def send_request(
         self, request_id: str, data: Dict[str, Union[str, bytes, int]],
@@ -51,35 +59,45 @@ class AWSClient(ProviderClient):
             import uuid
 
             begin = datetime.now()
-            if "data" in data:
-                binary_data = data["data"]
-                del data["data"]
-                attributes = {"data": {"BinaryValue": binary_data, "DataType": "Binary"}}
-            else:
-                binary_data = b""
-                attributes = {}
-            payload = DynamoReader._convert_items(data)
-            response = self._sqs_client.send_message(
-                QueueUrl=self._sqs_queue_url,
-                MessageBody=json.dumps(payload),
-                MessageAttributes=attributes,
-                MessageGroupId="0",
-                MessageDeduplicationId=request_id,
-            )
-            end = datetime.now()
-            if BENCHMARKING:
-                StorageStatistics.instance().add_write_time(int((end - begin) / timedelta(microseconds=1)))
-            ## FIXME: check return value
-            # begin = datetime.now()
-            # ret = self._dynamodb.put_item(
-            #    TableName=f"faaskeeper-{self._config.deployment_name}-write-queue",
-            #    Item=DynamoReader._convert_items({**data, "key": f"{str(uuid.uuid4())[0:4]}", "timestamp": request_id}),
-            #    ReturnConsumedCapacity="TOTAL",
-            # )
-            # end = datetime.now()
-            # if BENCHMARKING:
-            #    StorageStatistics.instance().add_write_time(int((end - begin) / timedelta(microseconds=1)))
-            #    StorageStatistics.instance().add_write_units(ret["ConsumedCapacity"]["CapacityUnits"])
+
+            if self._cfg.writer_queue == QueueType.SQS:
+
+                if "data" in data:
+                    binary_data = data["data"]
+                    del data["data"]
+                    attributes = {"data": {"BinaryValue": binary_data, "DataType": "Binary"}}
+                else:
+                    binary_data = b""
+                    attributes = {}
+                payload = DynamoReader._convert_items(data)
+                # FIXME: use response
+                response = self._sqs_client.send_message(
+                    QueueUrl=self._sqs_queue_url,
+                    MessageBody=json.dumps(payload),
+                    MessageAttributes=attributes,
+                    MessageGroupId="0",
+                    MessageDeduplicationId=request_id,
+                )
+                end = datetime.now()
+                if BENCHMARKING:
+                    StorageStatistics.instance().add_write_time(int((end - begin) / timedelta(microseconds=1)))
+
+            elif self._cfg.writer_queue == QueueType.DYNAMODB:
+
+                # FIXME: check return value
+                begin = datetime.now()
+                ret = self._dynamodb.put_item(
+                    TableName=f"faaskeeper-{self._config.deployment_name}-write-queue",
+                    Item=DynamoReader._convert_items(
+                        {**data, "key": f"{str(uuid.uuid4())[0:4]}", "timestamp": request_id}
+                    ),
+                    ReturnConsumedCapacity="TOTAL",
+                )
+                end = datetime.now()
+                if BENCHMARKING:
+                    StorageStatistics.instance().add_write_time(int((end - begin) / timedelta(microseconds=1)))
+                    StorageStatistics.instance().add_write_units(ret["ConsumedCapacity"]["CapacityUnits"])
+
         except Exception as e:
             raise AWSException(
                 f"Failure on AWS client on DynamoDB table "
