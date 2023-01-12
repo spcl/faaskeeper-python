@@ -1,3 +1,4 @@
+import base64
 import json
 import logging
 from datetime import datetime, timedelta
@@ -60,17 +61,20 @@ class AWSClient(ProviderClient):
 
             begin = datetime.now()
 
-            print(self._cfg.writer_queue, self._cfg.writer_queue == QueueType.SQS)
             if self._cfg.writer_queue == QueueType.SQS:
 
-                if "data" in data:
-                    binary_data = data["data"]
-                    del data["data"]
-                    attributes = {"data": {"BinaryValue": binary_data, "DataType": "Binary"}}
-                else:
-                    binary_data = b""
-                    attributes = {}
+                #if "data" in data:
+                #    binary_data = data["data"]
+                #    del data["data"]
+                #    attributes = {"data": {"BinaryValue": binary_data, "DataType": "Binary"}}
+                #else:
+                #    binary_data = b""
+                #    attributes = {}
+                # FIXME: seperate serialization
                 payload = DynamoReader._convert_items(data)
+                payload["data"]["B"] = base64.b64encode(payload["data"]["B"]).decode()
+
+                attributes = {}
                 # FIXME: use response
                 response = self._sqs_client.send_message(
                     QueueUrl=self._sqs_queue_url,
