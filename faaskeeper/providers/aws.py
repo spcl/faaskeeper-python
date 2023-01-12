@@ -72,7 +72,8 @@ class AWSClient(ProviderClient):
                 #    attributes = {}
                 # FIXME: seperate serialization
                 payload = DynamoReader._convert_items(data)
-                payload["data"]["B"] = base64.b64encode(payload["data"]["B"]).decode()
+                if "data" in payload:
+                    payload["data"]["B"] = base64.b64encode(payload["data"]["B"]).decode()
 
                 attributes = {}
                 # FIXME: use response
