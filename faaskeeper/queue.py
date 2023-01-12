@@ -1,6 +1,7 @@
 import hashlib
 import json
 import logging
+import select
 import socket
 import time
 import urllib.request
@@ -203,6 +204,88 @@ class WorkQueue:
                 raise TimeoutException(timeout)
 
 
+class Loop:
+    def __init__(self):
+
+        self._epoll = select.epoll()
+        self.connections = {}
+        self.requests = {}
+        self.responses = {}
+
+        self.server_fd = -1
+
+        self._handlers = {}
+
+    @classmethod
+    def instance(cls):
+        if not hasattr(cls, "_instance"):
+            cls._instance = cls()
+        return cls._instance
+
+    def register_handler(self, fd):
+        self._epoll.register(fd, select.EPOLLIN | select.EPOLLET)
+        self.server_fd = fd
+
+    def add_handler(self, fd, handler):
+        self._handlers[fd] = handler
+
+    def handle_connection(self, connection):
+        self._epoll.register(connection.fileno(), select.EPOLLIN | select.EPOLLET)
+        self.connections[connection.fileno()] = connection
+        self.requests[connection.fileno()] = b""
+
+    def start(self, event_to_wait, log, event_queue):
+
+        while event_to_wait.is_set():
+
+            events = self._epoll.poll(1)
+            for fileno, event in events:
+
+                if fileno == self.server_fd:
+                    accept_connection = self._handlers[fileno]
+                    accept_connection()
+
+                elif event & select.EPOLLIN:
+                    # try:
+                    #    while True:
+                    #        self.requests[fileno] += self.connections[fileno].recv(1024)
+                    # except socket.error:
+                    #    pass
+                    # if EOL1 in self.requests[fileno] or EOL2 in self.requests[fileno]:
+                    #    print(self.requests[fileno])
+                    # self._epoll.modify(fileno, select.EPOLLIN | select.EPOLLET)
+                    conn = self.connections[fileno]
+                    data = json.loads(conn.recv(1024).decode())
+                    log.info(f"Received message: {data}")
+                    if "type" in data and data["type"] == "heartbeat":
+                        conn.sendall(json.dumps({"status": "alive"}).encode())
+                    elif "watch-event" in data:
+                        event_queue.add_watch_notification(data)
+                    else:
+                        event_queue.add_indirect_result(data)
+
+                # elif event & select.EPOLLOUT:
+                #    try:
+                #        while len(self.responses[fileno]) > 0:
+                #            byteswritten = self.connections[fileno].send(self.responses[fileno])
+                #            self.responses[fileno] = self.responses[fileno][byteswritten:]
+                #    except socket.error:
+                #        pass
+                #    if len(self.responses[fileno]) == 0:
+                #        self._epoll.modify(fileno, select.EPOLLET)
+                #        self.connections[fileno].shutdown(socket.SHUT_RDWR)
+
+                elif event & select.EPOLLHUP:
+                    self._epoll.unregister(fileno)
+                    self.connections[fileno].close()
+                    del self.connections[fileno]
+
+    def stop(self, fd):
+        print("stopped epoll")
+        self._epoll.unregister(fd)
+        self._epoll.close()
+
+
 class ResponseListener(Thread):
     """The thread receives replies and watch notifications from the service.
     After calling `run`, the thread runs in the background until `stop` is called.
@@ -230,40 +313,64 @@ class ResponseListener(Thread):
         self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
         self._socket.bind(("", port if port != -1 else 0))
+        self._socket.setblocking(False)
 
         req = urllib.request.urlopen("https://checkip.amazonaws.com")
         self._public_addr = req.read().decode().strip()
         self._port = self._socket.getsockname()[1]
         self._log = logging.getLogger("ResponseListener")
 
+        self.loop = Loop.instance()
+
         self.start()
+
+    def accept_connection(self):
+        connection, address = self._socket.accept()
+        self._log.info(f"Connected with {address}")
+        connection.setblocking(0)
+        self.loop.handle_connection(connection)
 
     def run(self):
 
-        self._socket.settimeout(0.5)
-        self._socket.listen(1)
+        self._socket.listen(128)
+        self.loop.register_handler(self._socket.fileno())
+        self.loop.add_handler(self._socket.fileno(), self.accept_connection)
+        self._socket.setblocking(0)
         self._log.info(f"Begin listening on {self._public_addr}:{self._port}")
-        while self._work_event.is_set():
 
-            try:
-                conn, addr = self._socket.accept()
-            except socket.timeout:
-                pass
-            except Exception as e:
-                raise e
-            else:
-                self._log.info(f"Connected with {addr}")
-                data = json.loads(conn.recv(1024).decode())
-                self._log.info(f"Received message: {data}")
-                if "type" in data and data["type"] == "heartbeat":
-                    conn.sendall(json.dumps({"status": "alive"}).encode())
-                elif "watch-event" in data:
-                    self._event_queue.add_watch_notification(data)
-                else:
-                    self._event_queue.add_indirect_result(data)
+        self.loop.start(self._work_event, self._log, self._event_queue)
+
         self._log.info(f"Close response listener thread on {self._public_addr}:{self._port}")
         self._socket.close()
         self._work_event.set()
+
+    # def run(self):
+
+    #    #self._socket.settimeout(0.5)
+    #    self._socket.setblocking(0)
+    #    self._socket.listen(1)
+    #    self._log.info(f"Begin listening on {self._public_addr}:{self._port}")
+    #    while self._work_event.is_set():
+
+    #        try:
+    #            conn, addr = self._socket.accept()
+    #        except socket.timeout:
+    #            pass
+    #        except Exception as e:
+    #            raise e
+    #        else:
+    #            self._log.info(f"Connected with {addr}")
+    #            data = json.loads(conn.recv(1024).decode())
+    #            self._log.info(f"Received message: {data}")
+    #            if "type" in data and data["type"] == "heartbeat":
+    #                conn.sendall(json.dumps({"status": "alive"}).encode())
+    #            elif "watch-event" in data:
+    #                self._event_queue.add_watch_notification(data)
+    #            else:
+    #                self._event_queue.add_indirect_result(data)
+    #    self._log.info(f"Close response listener thread on {self._public_addr}:{self._port}")
+    #    self._socket.close()
+    #    self._work_event.set()
 
     def stop(self):
         """
