@@ -60,6 +60,7 @@ class AWSClient(ProviderClient):
 
             begin = datetime.now()
 
+            print(self._cfg.writer_queue, self._cfg.writer_queue == QueueType.SQS)
             if self._cfg.writer_queue == QueueType.SQS:
 
                 if "data" in data:
@@ -81,7 +82,7 @@ class AWSClient(ProviderClient):
                 end = datetime.now()
                 if BENCHMARKING:
                     StorageStatistics.instance().add_write_time(int((end - begin) / timedelta(microseconds=1)))
-
+                    
             elif self._cfg.writer_queue == QueueType.DYNAMODB:
 
                 # FIXME: check return value
@@ -100,8 +101,7 @@ class AWSClient(ProviderClient):
 
         except Exception as e:
             raise AWSException(
-                f"Failure on AWS client on DynamoDB table "
-                f"faaskeeper-{self._config.deployment_name}-write-queue: {str(e)}"
+                f"Failure on AWS client when sending request: {str(e)}"
             )
 
     def get_data(
