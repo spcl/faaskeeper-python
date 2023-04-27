@@ -45,16 +45,28 @@ class Node:
 
     @property
     def has_data(self) -> bool:
-        return self._data is not None
+        return self._data is not None or self._data_b64 is not None
 
     @property
     def data(self) -> bytes:
-        assert self._data is not None
+        if self._data is None:
+            assert self._data_b64 is not None
+            return base64.b64decode(self._data_b64)
+        else:
         return self._data
 
     @data.setter
     def data(self, data: bytes):
         self._data = data
+
+    @property
+    def data_b64(self) -> str:
+        assert self._data_b64 is not None
+        return self._data_b64
+
+    @data_b64.setter
+    def data_b64(self, data: str):
+        self._data_b64 = data
 
     @property
     def has_created(self) -> bool:
