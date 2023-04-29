@@ -31,6 +31,20 @@ class CloudProvider(Enum):
     def deserialize(val: str) -> "CloudProvider":
         return {"aws": CloudProvider.AWS}[val]
 
+class AWSConfig:
+
+    def __init__(self):
+        self._data_bucket: str
+
+    @property
+    def data_bucket(self) -> str:
+        return self._data_bucket
+
+    @staticmethod
+    def deserialize(data: dict) -> "AWSConfig":
+        cfg = AWSConfig()
+        cfg._data_bucket = data["data-bucket"]
+        return cfg
 
 class Config:
     def __init__(self):
@@ -70,6 +84,10 @@ class Config:
     def writer_queue(self) -> QueueType:
         return self._writer_queue
 
+    @property
+    def provider_config(self) -> AWSConfig:
+        return self._provider_cfg
+
     @staticmethod
     def deserialize(data: dict) -> "Config":
         cfg = Config()
@@ -80,4 +98,10 @@ class Config:
         cfg._heartbeat_frequency = data["heartbeat-frequency"]
         cfg._user_storage = StorageType.deserialize(data["user-storage"])
         cfg._writer_queue = QueueType.deserialize(data["worker-queue"])
+
+        if cfg._provider == CloudProvider.AWS:
+            cfg._provider_cfg = AWSConfig.deserialize(data["aws"])
+        else:
+            raise NotImplementedError()
+
         return cfg
