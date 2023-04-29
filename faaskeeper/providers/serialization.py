@@ -31,7 +31,7 @@ class S3Reader(DataReader):
         super().__init__(cfg.deployment_name)
         self._config = cfg
         self._s3 = boto3.client("s3")
-        self._storage_name = f"faaskeeper-{cfg.deployment_name}-data"
+        self._storage_name = self._config.provider_config.data_bucket
 
     @staticmethod
     def serialize(node: Node) -> bytes:
