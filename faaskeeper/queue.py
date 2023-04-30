@@ -394,7 +394,7 @@ class SQSListener(Thread):
                 MessageAttributeNames=["All"],
                 WaitTimeSeconds=5,
             )
-            if 'Messages' not in response:
+            if "Messages" not in response:
                 continue
 
             receipt_handles = []
@@ -496,10 +496,7 @@ class SubmitterThread(Thread):
                     self._event_queue.add_expected_result(req_id, request, future)
                     self._provider_client.send_request(
                         request_id=f"{self._session_id}-{req_id}",
-                        data={
-                            **request.generate_request(),
-                            **listener_address_dict,
-                        },
+                        data={**request.generate_request(), **listener_address_dict},
                     )
                 else:
                     # FIXME launch on a pool - then it becomes expected result as well
