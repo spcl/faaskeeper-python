@@ -75,9 +75,9 @@ class AWSClient(ProviderClient):
                 if "data" in payload:
                     payload["data"]["B"] = base64.b64encode(payload["data"]["B"]).decode()
 
-                attributes = {}
+                attributes: dict = {}
                 # FIXME: use response
-                response = self._sqs_client.send_message(
+                self._sqs_client.send_message(
                     QueueUrl=self._sqs_queue_url,
                     MessageBody=json.dumps(payload),
                     MessageAttributes=attributes,
