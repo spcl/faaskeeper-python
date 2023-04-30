@@ -11,6 +11,10 @@ from queue import Empty, Queue
 from threading import Event, Lock, Thread
 from typing import Dict, List, Optional, Tuple, Union
 
+import boto3
+from botocore.exceptions import ClientError
+
+from faaskeeper.config import Config
 from faaskeeper.exceptions import (
     ProviderException,
     SessionClosingException,
@@ -344,41 +348,69 @@ class ResponseListener(Thread):
         self._socket.close()
         self._work_event.set()
 
-    # def run(self):
 
-    #    #self._socket.settimeout(0.5)
-    #    self._socket.setblocking(0)
-    #    self._socket.listen(1)
-    #    self._log.info(f"Begin listening on {self._public_addr}:{self._port}")
-    #    while self._work_event.is_set():
+# FIXME: this should be hidden in providers implementation
+class SQSListener(Thread):
+    def __init__(self, event_queue: EventQueue, cfg: Config):
 
-    #        try:
-    #            conn, addr = self._socket.accept()
-    #        except socket.timeout:
-    #            pass
-    #        except Exception as e:
-    #            raise e
-    #        else:
-    #            self._log.info(f"Connected with {addr}")
-    #            data = json.loads(conn.recv(1024).decode())
-    #            self._log.info(f"Received message: {data}")
-    #            if "type" in data and data["type"] == "heartbeat":
-    #                conn.sendall(json.dumps({"status": "alive"}).encode())
-    #            elif "watch-event" in data:
-    #                self._event_queue.add_watch_notification(data)
-    #            else:
-    #                self._event_queue.add_indirect_result(data)
-    #    self._log.info(f"Close response listener thread on {self._public_addr}:{self._port}")
-    #    self._socket.close()
-    #    self._work_event.set()
+        super().__init__(daemon=True)
+        self._sqs = boto3.client("sqs", region_name=cfg.deployment_region)
+        self._queue_name = f"faaskeeper-{cfg.deployment_name}-client-sqs"
+
+        try:
+            self._queue_url = self._sqs.get_queue_url(QueueName=self._queue_name)["QueueUrl"]
+        except ClientError as error:
+            logging.exception(f"Couldn't get queue named {self._queue_name}")
+            raise error
+
+        self._event_queue = event_queue
+        self._work_event = Event()
+        self._work_event.set()
+        self._log = logging.getLogger("SQSListener")
+
+        self.start()
+
+    def run(self):
+
+        self._log.info(f"Start SQS response listener thread")
+
+        while self._work_event.is_set():
+
+            response = self._sqs.receive_message(
+                QueueUrl=self._queue_url,
+                AttributeNames=["SentTimestamp"],
+                MaxNumberOfMessages=10,
+                MessageAttributeNames=["All"],
+                WaitTimeSeconds=5,
+            )
+            if 'Messages' not in response:
+                continue
+
+            receipt_handles = []
+
+            for idx, msg in enumerate(response["Messages"]):
+                data = json.loads(msg["Body"])
+                self._log.info(f"Received message: {data}")
+                if "type" in data and data["type"] == "heartbeat":
+                    # FIXME: add heartbeats
+                    pass
+                elif "watch-event" in data:
+                    self._event_queue.add_watch_notification(data)
+                else:
+                    self._event_queue.add_indirect_result(data)
+
+                receipt_handles.append({"Id": str(idx), "ReceiptHandle": msg["ReceiptHandle"]})
+
+                if len(receipt_handles) > 0:
+                    self._sqs.delete_message_batch(QueueUrl=self._queue_url, Entries=receipt_handles)
+
+        self._log.info(f"Close SQS response listener thread")
+        self._work_event.set()
 
     def stop(self):
         """
         Clear work event and wait until run method sets it again before exiting.
         This certifies that thread has finished.
-
-        Since the thread listens on a socket with a time out of 0.5 seconds,
-        the stopping can take up to 0.5 second in the worst case.
         """
         self._work_event.clear()
         self._work_event.wait()
@@ -400,7 +432,7 @@ class SubmitterThread(Thread):
         provider_client: ProviderClient,
         queue: WorkQueue,
         event_queue: EventQueue,
-        response_handler: ResponseListener,
+        response_handler: Union[ResponseListener, SQSListener],
     ):
         super().__init__(daemon=True)
         self._session_id = session_id
@@ -426,7 +458,16 @@ class SubmitterThread(Thread):
     def run(self):
 
         self._log.info(f"Begin submission worker thread.")
-        listener_address = (self._response_handler.address, self._response_handler.port)
+        # FIXME: abstract it away
+        if isinstance(self._response_handler, ResponseListener):
+            listener_address = (self._response_handler.address, self._response_handler.port)
+            listener_address_dict = {
+                "sourceIP": self._response_handler.address,
+                "sourcePort": self._response_handler.port,
+            }
+        else:
+            listener_address = ()
+            listener_address_dict = {}
 
         while self._work_event.is_set():
 
@@ -446,8 +487,7 @@ class SubmitterThread(Thread):
                         request_id=f"{self._session_id}-{req_id}",
                         data={
                             **request.generate_request(),
-                            "sourceIP": self._response_handler.address,
-                            "sourcePort": self._response_handler.port,
+                            **listener_address_dict,
                         },
                     )
                 else:
