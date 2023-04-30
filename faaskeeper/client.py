@@ -1,8 +1,8 @@
 import logging
 import uuid
-from typing import List, Optional
+from typing import List, Optional, Union
 
-from faaskeeper.config import CloudProvider, Config
+from faaskeeper.config import ClientChannel, CloudProvider, Config
 from faaskeeper.exceptions import (
     MalformedInputException,
     SessionExpiredException,
@@ -24,6 +24,7 @@ from faaskeeper.queue import (
     EventQueue,
     ResponseListener,
     SorterThread,
+    SQSListener,
     SubmitterThread,
     WorkQueue,
 )
@@ -118,12 +119,20 @@ class FaaSKeeperClient:
         self._session_id = str(uuid.uuid4())[0:8]
         self._work_queue = WorkQueue()
         self._event_queue = EventQueue()
-        self._response_handler = ResponseListener(self._event_queue, self._port)
+
+        self._response_handler: Union[ResponseListener, SQSListener]
+        if self._config.client_channel == ClientChannel.TCP:
+            self._response_handler = ResponseListener(self._event_queue, self._port)
+            addr = f"{self._response_handler.address}:{self._response_handler.port}"
+        else:
+            self._response_handler = SQSListener(self._event_queue, self._config)
+            # FIXME: in this case, address should be completely removed
+            addr = ""
+
         self._work_thread = SubmitterThread(
             self._session_id, self._provider_client, self._work_queue, self._event_queue, self._response_handler
         )
         self._sorter_thread = SorterThread(self._event_queue)
-        addr = f"{self._response_handler.address}:{self._response_handler.port}"
         future = Future()
         self._work_queue.add_request(
             RegisterSession(session_id=self._session_id, source_addr=addr, heartbeat=self._heartbeat != -1,), future,

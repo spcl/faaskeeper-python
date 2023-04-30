@@ -63,11 +63,11 @@ class AWSClient(ProviderClient):
 
             if self._cfg.writer_queue == QueueType.SQS:
 
-                #if "data" in data:
+                # if "data" in data:
                 #    binary_data = data["data"]
                 #    del data["data"]
                 #    attributes = {"data": {"BinaryValue": binary_data, "DataType": "Binary"}}
-                #else:
+                # else:
                 #    binary_data = b""
                 #    attributes = {}
                 # FIXME: seperate serialization
@@ -87,7 +87,7 @@ class AWSClient(ProviderClient):
                 end = datetime.now()
                 if BENCHMARKING:
                     StorageStatistics.instance().add_write_time(int((end - begin) / timedelta(microseconds=1)))
-                    
+
             elif self._cfg.writer_queue == QueueType.DYNAMODB:
 
                 # FIXME: check return value
@@ -105,9 +105,7 @@ class AWSClient(ProviderClient):
                     StorageStatistics.instance().add_write_units(ret["ConsumedCapacity"]["CapacityUnits"])
 
         except Exception as e:
-            raise AWSException(
-                f"Failure on AWS client when sending request: {str(e)}"
-            )
+            raise AWSException(f"Failure on AWS client when sending request: {str(e)}")
 
     def get_data(
         self, path: str, watch_callback: Optional[WatchCallbackType], listen_address: Tuple[str, int]
@@ -170,7 +168,7 @@ class AWSClient(ProviderClient):
     def register_watch(
         self, node: Node, watch_type: WatchType, watch: WatchCallbackType, listen_address: Tuple[str, int]
     ):
-
+        # FIXME: make watch work with SQS
         item_names: Dict[WatchType, str] = {WatchType.GET_DATA: "getData"}
 
         """

@@ -20,6 +20,15 @@ class QueueType(Enum):
         return {"dynamodb": QueueType.DYNAMODB, "sqs": QueueType.SQS}[val]
 
 
+class ClientChannel(Enum):
+    TCP = 0
+    SQS = 1
+
+    @staticmethod
+    def deserialize(val: str) -> "ClientChannel":
+        return {"tcp": ClientChannel.TCP, "sqs": ClientChannel.SQS}[val]
+
+
 class CloudProvider(Enum):
     AWS = 0
 
@@ -31,8 +40,8 @@ class CloudProvider(Enum):
     def deserialize(val: str) -> "CloudProvider":
         return {"aws": CloudProvider.AWS}[val]
 
-class AWSConfig:
 
+class AWSConfig:
     def __init__(self):
         self._data_bucket: str
 
@@ -46,6 +55,7 @@ class AWSConfig:
         cfg._data_bucket = data["data-bucket"]
         return cfg
 
+
 class Config:
     def __init__(self):
         self._verbose: bool
@@ -55,6 +65,8 @@ class Config:
         self._heartbeat_frequency: int
         self._user_storage: StorageType
         self._writer_queue: QueueType
+        self._provider_cfg: AWSConfig
+        self._client_channel: ClientChannel
 
     @property
     def verbose(self) -> bool:
@@ -88,6 +100,10 @@ class Config:
     def provider_config(self) -> AWSConfig:
         return self._provider_cfg
 
+    @property
+    def client_channel(self) -> ClientChannel:
+        return self._client_channel
+
     @staticmethod
     def deserialize(data: dict) -> "Config":
         cfg = Config()
@@ -98,6 +114,7 @@ class Config:
         cfg._heartbeat_frequency = data["heartbeat-frequency"]
         cfg._user_storage = StorageType.deserialize(data["user-storage"])
         cfg._writer_queue = QueueType.deserialize(data["worker-queue"])
+        cfg._client_channel = ClientChannel.deserialize(data["client-channel"])
 
         if cfg._provider == CloudProvider.AWS:
             cfg._provider_cfg = AWSConfig.deserialize(data["aws"])
