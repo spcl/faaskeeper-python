@@ -118,14 +118,14 @@ class EpochCounter:
     def version(self) -> Optional[Set[str]]:
         if self._version is None:
             assert self._provider_data is not None
-            self._version = set(EpochCounter._type_deserializer.deserialize(self._provider_data))
+            self._version = set(EpochCounter._type_deserializer.deserialize(self._provider_data))  # type: ignore
         return self._version
 
     # JSON cannot accept a set
     def serialize(self) -> List[str]:
         if self._version is None:
             assert self._provider_data is not None
-            self._version = set(EpochCounter._type_deserializer.deserialize(self._provider_data))
+            self._version = set(EpochCounter._type_deserializer.deserialize(self._provider_data))  # type: ignore
             # self._version = set(AWSDecoder._decode_aws_schema(self._provider_data))
         return list(self._version)
 
