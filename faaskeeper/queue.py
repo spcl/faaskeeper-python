@@ -348,6 +348,17 @@ class ResponseListener(Thread):
         self._socket.close()
         self._work_event.set()
 
+    def stop(self):
+        """
+        Clear work event and wait until run method sets it again before exiting.
+        This certifies that thread has finished.
+
+        Since the thread listens on a socket with a time out of 0.5 seconds,
+        the stopping can take up to 0.5 second in the worst case.
+        """
+        self._work_event.clear()
+        self._work_event.wait()
+
 
 # FIXME: this should be hidden in providers implementation
 class SQSListener(Thread):
