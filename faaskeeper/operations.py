@@ -115,7 +115,7 @@ class CreateNode(RequestOperation):
             op = CreateNode(session_id, path, value, flags)
 
             if "data" in request:
-                op.data_b64 = request["value"]
+                op.data_b64 = request["data"]
 
             return op
         except KeyError as e:
