@@ -1,3 +1,4 @@
+import logging
 from abc import ABC, abstractmethod
 from typing import Optional
 
@@ -108,17 +109,17 @@ class CreateNode(RequestOperation):
         try:
             session_id = request["session_id"]
             path = request["path"]
-            value = ''
+            value = bytes()
             flags = request["flags"]
 
             op = CreateNode(session_id, path, value, flags)
 
-            if "data" in value:
+            if "data" in request:
                 op.data_b64 = request["value"]
 
             return op
         except KeyError as e:
-            logging.error(f"Failed to parse the event {request}")
+            logging.error(f"Failed to parse the event {request}, missing key {e}")
             return None
 
     def process_result(self, result: dict, fut: Future):
@@ -143,11 +144,12 @@ class CreateNode(RequestOperation):
 
     @property
     def data_b64(self) -> str:
-        return self._value
+        assert self._value_encoded
+        return self._value_encoded
 
     @data_b64.setter
     def data_b64(self, val: str):
-        self._value = val
+        self._value_encoded = val
 
 
 class SetData(RequestOperation):
@@ -273,6 +275,18 @@ class DeregisterSession(RequestOperation):
             "op": self.name,
             "session_id": self._session_id,
         }
+
+    @staticmethod
+    def deserialize(request: dict) -> Optional["DeregisterSession"]:
+
+        try:
+            session_id = request["session_id"]
+            op = DeregisterSession(session_id)
+
+            return op
+        except KeyError:
+            logging.error(f"Failed to parse the event {request}")
+            return None
 
     def process_result(self, result: dict, fut: Future):
         if result["status"] == "success":
