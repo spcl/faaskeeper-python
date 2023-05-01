@@ -7,7 +7,7 @@ from boto3.dynamodb.types import TypeDeserializer, TypeSerializer
 class AWSDecoder:
 
     """
-        Convert the DynamoDB representation of a list/set into a Pythonic one.
+    Convert the DynamoDB representation of a list/set into a Pythonic one.
     """
 
     @staticmethod
@@ -33,15 +33,15 @@ class AWSDecoder:
 class SystemCounter:
 
     """
-        The system counter consists of a sequence of integers.
-        Each one corresponds to the most recent modification on a parallel writer.
+    The system counter consists of a sequence of integers.
+    Each one corresponds to the most recent modification on a parallel writer.
 
-        We can store provider-native data or the raw data with integers.
-        The former is useful when we don't want to perform conversions, e.g.,
-        we read DynamoDB structure with counter and use it when writing to
-        DynamoDB table with storage.
+    We can store provider-native data or the raw data with integers.
+    The former is useful when we don't want to perform conversions, e.g.,
+    we read DynamoDB structure with counter and use it when writing to
+    DynamoDB table with storage.
 
-        We implement comparison and inequality operators to compare counters.
+    We implement comparison and inequality operators to compare counters.
     """
 
     def __init__(self, provider_data: Optional[dict], version: Optional[List[int]]):
@@ -133,12 +133,12 @@ class EpochCounter:
 class Version:
 
     """
-        Current version of the node. The version expresses the most
-        recent modification to the system, and the watch notifications that were
-        being applied while the version was updated.
+    Current version of the node. The version expresses the most
+    recent modification to the system, and the watch notifications that were
+    being applied while the version was updated.
 
-        The epoch counter is not used by writer function, thus it can be null
-        at the global stage. It is set only in the user region.
+    The epoch counter is not used by writer function, thus it can be null
+    at the global stage. It is set only in the user region.
     """
 
     def __init__(self, system: SystemCounter, epoch: Optional[EpochCounter]):

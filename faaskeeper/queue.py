@@ -430,11 +430,11 @@ class SQSListener(Thread):
 class SubmitterThread(Thread):
 
     """
-        The thread polls requests from work queue and submits them.
-        After calling `run`, the thread runs in the background until `stop` is called.
+    The thread polls requests from work queue and submits them.
+    After calling `run`, the thread runs in the background until `stop` is called.
 
-        :param session_id: ID of active session
-        :param service_name: name of FK deployment in cloud
+    :param session_id: ID of active session
+    :param service_name: name of FK deployment in cloud
     """
 
     def __init__(
@@ -459,8 +459,8 @@ class SubmitterThread(Thread):
 
     def stop(self):
         """
-            Sets stop event and wait until run method clears it.
-            This certifies that thread has finished.
+        Sets stop event and wait until run method clears it.
+        This certifies that thread has finished.
         """
         self._work_event.clear()
         self._work_event.wait()
@@ -490,7 +490,7 @@ class SubmitterThread(Thread):
             try:
                 if request.is_cloud_request():
                     """
-                        Send the request to execution to the underlying cloud service.
+                    Send the request to execution to the underlying cloud service.
                     """
                     self._log.info(f"Begin executing operation: {request.name}")
                     self._event_queue.add_expected_result(req_id, request, future)
@@ -523,12 +523,12 @@ class SubmitterThread(Thread):
 
 class SorterThread(Thread):
     """
-        The thread polls requests from the event queue,
-        and sorts them while releasing results to the user.
-        After calling `run`, the thread runs in the background until `stop` is called.
+    The thread polls requests from the event queue,
+    and sorts them while releasing results to the user.
+    After calling `run`, the thread runs in the background until `stop` is called.
 
-        :param session_id: ID of active session
-        :param service_name: name of FK deployment in cloud
+    :param session_id: ID of active session
+    :param service_name: name of FK deployment in cloud
     """
 
     def __init__(self, queue: EventQueue):
@@ -542,8 +542,8 @@ class SorterThread(Thread):
 
     def stop(self):
         """
-            Sets stop event and wait until run method clears it.
-            This certifies that thread has finished.
+        Sets stop event and wait until run method clears it.
+        This certifies that thread has finished.
         """
         self._work_event.clear()
         self._work_event.wait()

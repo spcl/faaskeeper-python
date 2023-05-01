@@ -47,7 +47,12 @@ class FaaSKeeperClient:
     _providers = {CloudProvider.AWS: AWSClient}
 
     def __init__(
-        self, cfg: Config, port: int = -1, heartbeat: bool = True, verbose: bool = False, debug: bool = False,
+        self,
+        cfg: Config,
+        port: int = -1,
+        heartbeat: bool = True,
+        verbose: bool = False,
+        debug: bool = False,
     ):
         self._client_id = str(uuid.uuid4())[0:8]
         self._config = cfg
@@ -64,11 +69,13 @@ class FaaSKeeperClient:
             )
         elif verbose:
             logging.basicConfig(
-                level=logging.INFO, format="[%(asctime)s] (%(name)s) %(message)s",
+                level=logging.INFO,
+                format="[%(asctime)s] (%(name)s) %(message)s",
             )
         else:
             logging.basicConfig(
-                level=logging.ERROR, format="[%(asctime)s] (%(name)s) %(message)s",
+                level=logging.ERROR,
+                format="[%(asctime)s] (%(name)s) %(message)s",
             )
         self._log = logging.getLogger("FaaSKeeperClient")
 
@@ -135,7 +142,12 @@ class FaaSKeeperClient:
         self._sorter_thread = SorterThread(self._event_queue)
         future = Future()
         self._work_queue.add_request(
-            RegisterSession(session_id=self._session_id, source_addr=addr, heartbeat=self._heartbeat != -1,), future,
+            RegisterSession(
+                session_id=self._session_id,
+                source_addr=addr,
+                heartbeat=self._heartbeat != -1,
+            ),
+            future,
         )
         future.get()
         self._log.info(f"Registered session: {self._session_id}")
@@ -166,7 +178,10 @@ class FaaSKeeperClient:
         try:
             future = Future()
             self._work_queue.add_request(
-                DeregisterSession(session_id=self._session_id,), future,
+                DeregisterSession(
+                    session_id=self._session_id,
+                ),
+                future,
             )
             self._work_queue.close()
             self._work_queue.wait_close(3)
@@ -192,7 +207,13 @@ class FaaSKeeperClient:
 
         return "closed"
 
-    def create(self, path: str, value: bytes = b"", ephemeral: bool = False, sequential: bool = False,) -> Node:
+    def create(
+        self,
+        path: str,
+        value: bytes = b"",
+        ephemeral: bool = False,
+        sequential: bool = False,
+    ) -> Node:
         """Create new node synchronously.
 
         :param path: node path
@@ -204,7 +225,13 @@ class FaaSKeeperClient:
         return self.create_async(path, value, ephemeral, sequential).get()
 
     # FIXME: Document exceptions
-    def create_async(self, path: str, value: bytes = b"", ephemeral: bool = False, sequential: bool = False,) -> Future:
+    def create_async(
+        self,
+        path: str,
+        value: bytes = b"",
+        ephemeral: bool = False,
+        sequential: bool = False,
+    ) -> Future:
         """Create new node in an asynchronous mode.
 
         :param path: node path
@@ -225,7 +252,8 @@ class FaaSKeeperClient:
 
         future = Future()
         self._work_queue.add_request(
-            CreateNode(session_id=self._session_id, path=path, value=value, flags=flags), future,
+            CreateNode(session_id=self._session_id, path=path, value=value, flags=flags),
+            future,
         )
         return future
 
@@ -250,7 +278,8 @@ class FaaSKeeperClient:
         future = Future()
         assert self.session_id
         self._work_queue.add_request(
-            GetData(session_id=self.session_id, path=path, watch=watch), future,
+            GetData(session_id=self.session_id, path=path, watch=watch),
+            future,
         )
         return future
 
@@ -278,7 +307,8 @@ class FaaSKeeperClient:
         future = Future()
         assert self.session_id
         self._work_queue.add_request(
-            GetChildren(session_id=self.session_id, path=path, include_data=include_data), future,
+            GetChildren(session_id=self.session_id, path=path, include_data=include_data),
+            future,
         )
         return future
 
@@ -305,7 +335,8 @@ class FaaSKeeperClient:
         future = Future()
         assert self.session_id
         self._work_queue.add_request(
-            ExistsNode(session_id=self.session_id, path=path), future,
+            ExistsNode(session_id=self.session_id, path=path),
+            future,
         )
         return future
 
@@ -338,7 +369,8 @@ class FaaSKeeperClient:
         FaaSKeeperClient._sanitize_path(path)
         future = Future()
         self._work_queue.add_request(
-            SetData(session_id=self._session_id, path=path, value=value, version=version), future,
+            SetData(session_id=self._session_id, path=path, value=value, version=version),
+            future,
         )
         return future
 
@@ -369,6 +401,7 @@ class FaaSKeeperClient:
         FaaSKeeperClient._sanitize_path(path)
         future = Future()
         self._work_queue.add_request(
-            DeleteNode(session_id=self._session_id, path=path, version=version), future,
+            DeleteNode(session_id=self._session_id, path=path, version=version),
+            future,
         )
         return future

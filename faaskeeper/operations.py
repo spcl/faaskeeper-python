@@ -91,7 +91,7 @@ class CreateNode(RequestOperation):
     def __init__(self, session_id: str, path: str, value: Optional[bytes], flags: int):
         super().__init__(session_id, path)
         self._value = value
-        self._value_encoded = None
+        self._value_encoded: Optional[str] = None
 
     def generate_request(self) -> dict:
         return {
@@ -155,8 +155,9 @@ class CreateNode(RequestOperation):
 class SetData(RequestOperation):
     def __init__(self, session_id: str, path: str, value: bytes, version: int):
         super().__init__(session_id, path)
-        self._value = value
         self._version = version
+        self._value = value
+        self._value_encoded: Optional[str] = None
 
     def generate_request(self) -> dict:
         return {
@@ -166,6 +167,25 @@ class SetData(RequestOperation):
             "data": self._value,
             "version": self._version,
         }
+
+    @staticmethod
+    def deserialize(request: dict) -> Optional["SetData"]:
+
+        try:
+            session_id = request["session_id"]
+            path = request["path"]
+            value = bytes()
+            version = request["version"]
+
+            op = SetData(session_id, path, value, version)
+
+            if "data" in request:
+                op.data_b64 = request["data"]
+
+            return op
+        except KeyError as e:
+            logging.error(f"Failed to parse the event {request}, missing key {e}")
+            return None
 
     def process_result(self, result: dict, fut: Future):
         if result["status"] == "success":
@@ -187,6 +207,15 @@ class SetData(RequestOperation):
     def name(self) -> str:
         return "set_data"
 
+    @property
+    def data_b64(self) -> str:
+        assert self._value_encoded
+        return self._value_encoded
+
+    @data_b64.setter
+    def data_b64(self, val: str):
+        self._value_encoded = val
+
 
 class DeleteNode(RequestOperation):
     def __init__(self, session_id: str, path: str, version: int):
@@ -200,6 +229,21 @@ class DeleteNode(RequestOperation):
             "session_id": self._session_id,
             "version": self._version,
         }
+
+    @staticmethod
+    def deserialize(request: dict) -> Optional["DeleteNode"]:
+
+        try:
+            session_id = request["session_id"]
+            path = request["path"]
+            version = request["version"]
+
+            op = DeleteNode(session_id, path, version)
+
+            return op
+        except KeyError as e:
+            logging.error(f"Failed to parse the event {request}, missing key {e}")
+            return None
 
     def process_result(self, result: dict, fut: Future):
         if result["status"] == "success":

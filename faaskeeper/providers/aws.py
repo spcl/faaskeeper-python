@@ -53,7 +53,9 @@ class AWSClient(ProviderClient):
             raise NotImplementedError()
 
     def send_request(
-        self, request_id: str, data: Dict[str, Union[str, bytes, int]],
+        self,
+        request_id: str,
+        data: Dict[str, Union[str, bytes, int]],
     ):
         # FIXME: handle failure
         try:
