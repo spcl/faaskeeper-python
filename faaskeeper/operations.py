@@ -144,7 +144,7 @@ class CreateNode(RequestOperation):
 
     @property
     def data_b64(self) -> str:
-        assert self._value_encoded
+        assert self._value_encoded is not None
         return self._value_encoded
 
     @data_b64.setter
@@ -209,7 +209,7 @@ class SetData(RequestOperation):
 
     @property
     def data_b64(self) -> str:
-        assert self._value_encoded
+        assert self._value_encoded is not None
         return self._value_encoded
 
     @data_b64.setter
