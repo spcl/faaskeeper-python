@@ -67,20 +67,15 @@ class S3Reader(DataReader):
         children_lengths = [len(x) for x in children]
 
         # first pack counters
-        counters = [created_system, modified_system]
-        total_length = reduce(lambda a, b: a + b, map(len, counters))
+        # FIXME: remove after simplifying system counter to single integer
+        max_int64 = 0xFFFFFFFFFFFFFFFF
+        created = [(created_system[0] >> 64) & max_int64, created_system[0] & max_int64]
+        modified = [(modified_system[0] >> 64) & max_int64, modified_system[0] & max_int64]
+
         data = struct.pack(
-            f"<{4+total_length+1}I",
-            4 * (4 + total_length + 2)
-            + 4 * len(epoch)
-            + sum(epoch_lengths)
-            + 4 * len(children)
-            + sum(children_lengths),
-            3 + total_length,
-            len(created_system),
-            *created_system,
-            len(modified_system),
-            *modified_system,
+            f"<4Q1I",
+            *created,
+            *modified,
             len(epoch),
         )
 
@@ -103,27 +98,19 @@ class S3Reader(DataReader):
         # parse DynamoDB storage of node data and counter values
         n = Node(path)
         # unpack always returns a tuple, even for a single element
-        # first element tells us the entire header size
-        # the second one - number of integers defining counters
-        header_size, counter_len = struct.unpack_from("<2I", data)
-        offset = struct.calcsize("<2I")
-        # now parse counter data
-        # for each counter of N values, we store N + 1 4 byte integers
-        # counter_len counter_0 counter_1 .... counter_{N-1}
-        counter_data = struct.unpack_from(f"<{counter_len}I", data, offset=offset)
-        offset += struct.calcsize(f"<{counter_len}I")
+        counter_data = struct.unpack_from(f"<4Q1I", data, 0)
+        offset = struct.calcsize("<4Q1I")
 
         # read 'created' counter
-        # first pos is counter length, then counter data
-        begin = 1
-        end = begin + counter_data[0]
-        sys = SystemCounter.from_raw_data(list(counter_data[begin:end]))
+        # recompute the integer
+        created = (counter_data[0] << 64) | counter_data[1]
+        sys = SystemCounter.from_raw_data([created])
         n.created = Version(sys, None)
 
         # read 'modified' counter
-        begin = end + 1
-        end = begin + counter_data[begin - 1]
-        sys = SystemCounter.from_raw_data(list(counter_data[begin:end]))
+        # recompute the integer
+        modified = (counter_data[2] << 64) | counter_data[3]
+        sys = SystemCounter.from_raw_data([modified])
 
         # load epoch counter
         # offset now points at the end of counter data
