@@ -61,6 +61,11 @@ class RequestOperation(Operation):
     def is_cloud_request(self) -> bool:
         return True
 
+    @staticmethod
+    @abstractmethod
+    def deserialize(request: dict) -> Optional["RequestOperation"]:
+        pass
+
 
 class DirectOperation(Operation):
     """Base class for all operations executed directly by the client library.
@@ -82,9 +87,10 @@ class DirectOperation(Operation):
 
 
 class CreateNode(RequestOperation):
-    def __init__(self, session_id: str, path: str, value: bytes, flags: int):
+    def __init__(self, session_id: str, path: str, value: Optional[bytes], flags: int):
         super().__init__(session_id, path)
         self._value = value
+        self._value_encoded = None
 
     def generate_request(self) -> dict:
         return {
@@ -95,6 +101,25 @@ class CreateNode(RequestOperation):
             "flags": 0,
             "data": self._value,
         }
+
+    @staticmethod
+    def deserialize(request: dict) -> Optional["CreateNode"]:
+
+        try:
+            session_id = request["session_id"]
+            path = request["path"]
+            value = ''
+            flags = request["flags"]
+
+            op = CreateNode(session_id, path, value, flags)
+
+            if "data" in value:
+                op.data_b64 = request["value"]
+
+            return op
+        except KeyError as e:
+            logging.error(f"Failed to parse the event {request}")
+            return None
 
     def process_result(self, result: dict, fut: Future):
         if result["status"] == "success":
@@ -115,6 +140,14 @@ class CreateNode(RequestOperation):
     @property
     def name(self) -> str:
         return "create"
+
+    @property
+    def data_b64(self) -> str:
+        return self._value
+
+    @data_b64.setter
+    def data_b64(self, val: str):
+        self._value = val
 
 
 class SetData(RequestOperation):
