@@ -4,7 +4,7 @@ from typing import Callable
 
 class WatchEventType(Enum):
     """Implementing API similar to ZooKeeper - inspired by the
-        org.apache.zookeeper.Watcher.Event.EventType
+    org.apache.zookeeper.Watcher.Event.EventType
     """
 
     NODE_CREATED = 0
@@ -19,7 +19,7 @@ class WatchEventType(Enum):
 class WatchedEvent:
 
     """Implementing API similar to ZtooKeeper - inspired by the
-        org.apache.zookeeper.WatchedEvent
+    org.apache.zookeeper.WatchedEvent
     """
 
     def __init__(self, event_type: "WatchEventType", path: str, timestamp: int):

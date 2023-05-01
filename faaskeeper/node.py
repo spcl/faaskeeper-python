@@ -15,9 +15,9 @@ class NodeDataType(Enum):
 class Node:
 
     """
-        This class represents the FaaSKeeper node.
-        It is similar to the original ZooKeeper node, with the major
-        difference in the definition of node version - we use two counters.
+    This class represents the FaaSKeeper node.
+    It is similar to the original ZooKeeper node, with the major
+    difference in the definition of node version - we use two counters.
     """
 
     def __init__(self, path: str):

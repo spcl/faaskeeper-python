@@ -36,22 +36,22 @@ class S3Reader(DataReader):
     @staticmethod
     def serialize(node: Node) -> bytes:
         """
-            Binary data format
-            int: total header size (in bytes)
-            int: total number of integers
-            int: number of integers in created system
-            int[]: created system
-            int: number of integers in created epoch
-            int[]: created epoch
-            int: number of integers in modified system
-            int[]: modified system
-            int: number of integers in modified epoch
-            int[]: modified epoch
+        Binary data format
+        int: total header size (in bytes)
+        int: total number of integers
+        int: number of integers in created system
+        int[]: created system
+        int: number of integers in created epoch
+        int[]: created epoch
+        int: number of integers in modified system
+        int[]: modified system
+        int: number of integers in modified epoch
+        int[]: modified epoch
 
-            int: total number of strings (children)
-            The latter is repeated for each string:
-            int: size of string
-            char[]: string data
+        int: total number of strings (children)
+        The latter is repeated for each string:
+        int: size of string
+        char[]: string data
         """
 
         created_system = node.created.system.serialize()
