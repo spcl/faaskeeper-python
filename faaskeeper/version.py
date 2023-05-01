@@ -42,7 +42,11 @@ class SystemCounter:
     DynamoDB table with storage.
 
     We implement comparison and inequality operators to compare counters.
+
+    FIXME: we should split DynamoDB serialization.
     """
+
+    _type_serializer = TypeSerializer()
 
     def __init__(self, provider_data: Optional[dict], version: Optional[List[int]]):
         self._provider_data = provider_data
@@ -64,8 +68,10 @@ class SystemCounter:
 
     @property
     def version(self) -> dict:
-        assert self._provider_data
-        return self._provider_data
+        if self._provider_data is None:
+            assert self._version is not None
+            self._provider_data = SystemCounter._type_serializer.serialize(self._version)  # type: ignore
+        return self._provider_data  # type: ignore
 
     @property
     def sum(self) -> int:
