@@ -617,6 +617,11 @@ class SorterThread(Thread):
                 result = submission[1]
                 # event format is: {session_id}-{local_idx}
                 req_id = int(result["event"].split("-")[1])
+
+                if len(futures) == 0:
+                    self._log.error(f"Ignoring the result {result} with ID {req_id} for a non-existing future")
+                    continue
+
                 # FIXME: enforce ordering
                 assert futures[0][0] == req_id
                 req_id, request, future, _ = futures.pop(0)
