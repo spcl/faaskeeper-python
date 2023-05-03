@@ -56,7 +56,7 @@ class S3Reader(DataReader):
 
         created_system = node.created.system.serialize()
         modified_system = node.modified.system.serialize()
-        assert node.modified.epoch
+        assert node.modified.epoch is not None
         epoch_set = node.modified.epoch.version
         if epoch_set is None:
             epoch_set = set()
