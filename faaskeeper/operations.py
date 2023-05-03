@@ -132,6 +132,8 @@ class CreateNode(RequestOperation):
                 fut.set_exception(NodeExistsException(result["path"]))
             elif result["reason"] == "node_doesnt_exist":
                 fut.set_exception(NodeDoesntExistException(result["path"]))
+            elif result["reason"] == "update_not_committed":
+                fut.set_exception(FaaSKeeperException("Update could not be applied"))
             else:
                 fut.set_exception(FaaSKeeperException("unknown error"))
 
@@ -197,6 +199,8 @@ class SetData(RequestOperation):
                 fut.set_exception(BadVersionError(self._version))
             elif result["reason"] == "node_doesnt_exist":
                 fut.set_exception(NodeDoesntExistException(self._path))
+            elif result["reason"] == "update_not_committed":
+                fut.set_exception(FaaSKeeperException("Update could not be applied"))
             else:
                 fut.set_exception(FaaSKeeperException("unknown error"))
 
@@ -256,6 +260,8 @@ class DeleteNode(RequestOperation):
                 fut.set_exception(NodeDoesntExistException(self._path))
             elif result["reason"] == "not_empty":
                 fut.set_exception(NotEmptyException(self._path))
+            elif result["reason"] == "update_not_committed":
+                fut.set_exception(FaaSKeeperException("Update could not be applied"))
             else:
                 fut.set_exception(FaaSKeeperException("unknown error"))
 
