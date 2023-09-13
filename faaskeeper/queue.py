@@ -602,7 +602,7 @@ class SorterThread(Thread):
                     paths = []
                     for p in result.modified.epoch.version:
                         paths.append(p.split("_")[0])
-                    other_watches = watches = self._queue.get_watches(paths, timestamp)
+                    other_watches = self._queue.get_watches(paths, timestamp)
 
                     if (len(watches) > 0 or len(other_watches) > 0):
                         self._queue.add_direct_result(req_id, result, future)
