@@ -27,10 +27,9 @@ class GCPClient(ProviderClient):
         self._session_table = f"faaskeeper-{self._config.deployment_name}-users"
         _storage_client = storage.Client()
         self._bucket = _storage_client.bucket(self._config.provider_config.bucket_name)
-        self._user_data_reader = S3Reader(cfg) # PERSISTENT
-
+        
         # writer queue for now is pub/sub
-        if cfg.writer_queue == QueueType.SQS:
+        if cfg.writer_queue == QueueType.PUBSUB:
             batch_settings = pubsub_v1.types.BatchSettings(
                 max_messages=10,  # default 100, now it is 10
                 max_bytes= 1 * 1000 * 1000,  # default 1 MB, still 1 MB -> 1000 * 1000 KB
@@ -49,19 +48,15 @@ class GCPClient(ProviderClient):
         blob = self._bucket.get_blob(blob)
         if blob is not None:
             file_content = blob.download_as_bytes()
-            return self._user_data_reader.deserialize(path, file_content, include_children, include_data)
+            return S3Reader.deserialize(path, file_content, include_children, include_data)
         return None
 
     def get_data(self, path: str, watch_callback: Optional[WatchCallbackType], listen_address: Tuple[str, int]) -> Tuple[Node, Optional[Watch]]:
         # read data
         begin = datetime.now()
         node = self.get_data_helper(path, True, True)
-        # blob = self._bucket.get_blob(path)
-        # if blob is not None:
-            # file_content = blob.download_as_bytes()
         if node is not None:
             end = datetime.now()
-            # node = self._user_data_reader.deserialize(path, file_content, True, True)
             if BENCHMARKING:
                 StorageStatistics.instance().add_read_time(int((end - begin) / timedelta(microseconds=1))) # 1 entity read
             
