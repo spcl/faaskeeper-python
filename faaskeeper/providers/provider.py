@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List, Optional, Tuple
-
+from typing import Dict, List, Optional, Tuple, Union
 from faaskeeper.config import Config
 from faaskeeper.node import Node
 from faaskeeper.operations import (
@@ -21,6 +20,14 @@ class ProviderClient(ABC):
     def get_data(
         self, path: str, watch: Optional[WatchCallbackType], listen_address: Tuple[str, int]
     ) -> Tuple[Node, Optional[Watch]]:
+        pass
+
+    @abstractmethod
+    def send_request(
+        self,
+        request_id: str,
+        data: Dict[str, Union[str, bytes, int]],
+    ):
         pass
 
     @abstractmethod
