@@ -54,7 +54,7 @@ class AWSClient(ProviderClient):
 
     def send_request(
         self,
-        request_id: str,
+        request_id: str, # {session_id} - {local_idx}
         data: Dict[str, Union[str, bytes, int]],
     ):
         # FIXME: handle failure

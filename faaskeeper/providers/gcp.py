@@ -81,15 +81,16 @@ class GCPClient(ProviderClient):
         data: Dict[str, Union[str, bytes, int]],
     ):
         begin = datetime.now()
+        if self._config.writer_queue == QueueType.PUBSUB:
+            data["timestamp"] = request_id
+            payload = json.dumps(data).encode()
+            _ = self._publisher_client.publish(
+                self._topic_path, payload, data["session_id"]
+            )
 
-        payload = json.dumps(data).encode()
-        _ = self._publisher_client.publish(
-            self._topic_path, payload, data["session_id"]
-        )
-
-        end = datetime.now()
-        if BENCHMARKING:
-            StorageStatistics.instance().add_write_time(int((end - begin) / timedelta(microseconds=1)))
+            end = datetime.now()
+            if BENCHMARKING:
+                StorageStatistics.instance().add_write_time(int((end - begin) / timedelta(microseconds=1)))
 
     def exists(self, path: str) -> Tuple[Optional[Node], Optional[Watch]]:
         node = self.get_data_helper(path, False, False)
