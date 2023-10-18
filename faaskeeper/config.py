@@ -14,10 +14,11 @@ class StorageType(Enum):
 class QueueType(Enum):
     DYNAMODB = 0
     SQS = 1
+    PUBSUB =  2
 
     @staticmethod
     def deserialize(val: str) -> "QueueType":
-        return {"dynamodb": QueueType.DYNAMODB, "sqs": QueueType.SQS}[val]
+        return {"dynamodb": QueueType.DYNAMODB, "sqs": QueueType.SQS, "pubsub": QueueType.PUBSUB}[val]
 
 
 class ClientChannel(Enum):
