@@ -45,7 +45,7 @@ class GCPClient(ProviderClient):
             raise NotImplementedError()
     
     def get_data_helper(self, path, include_data: bool, include_children: bool) -> Optional[Node]:
-        blob = self._bucket.get_blob(blob)
+        blob = self._bucket.get_blob(path)
         if blob is not None:
             file_content = blob.download_as_bytes()
             return S3Reader.deserialize(path, file_content, include_children, include_data)
