@@ -27,7 +27,7 @@ class GCPClient(ProviderClient):
         self._session_table = f"faaskeeper-{self._config.deployment_name}-users"
         _storage_client = storage.Client()
         self._bucket = _storage_client.bucket(self._config.provider_config.bucket_name)
-        
+
         # writer queue for now is pub/sub
         if cfg.writer_queue == QueueType.PUBSUB:
             batch_settings = pubsub_v1.types.BatchSettings(
@@ -36,11 +36,11 @@ class GCPClient(ProviderClient):
                 max_latency=0.01,  # default 10 ms, now is 10ms
             )
             publisher_options = pubsub_v1.types.PublisherOptions(enable_message_ordering=True) # enable FIFO
+            self._publisher_client = pubsub_v1.PublisherClient(publisher_options=publisher_options, batch_settings= batch_settings)
+        
             self._topic_id = "writer-queue-topic"
             self._project_id = self._config.provider_config.project_id
-            self._topic_path = self.publisher_client.topic_path(self._project_id, self._topic_id)
-            
-            self._publisher_client = pubsub_v1.PublisherClient(publisher_options=publisher_options, batch_settings= batch_settings)
+            self._topic_path = self._publisher_client.topic_path(self._project_id, self._topic_id)
         else:
             raise NotImplementedError()
     
