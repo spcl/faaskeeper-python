@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 import logging
 import json
 import google.cloud.exceptions
+import base64
 
 BENCHMARKING = True
 
@@ -83,6 +84,7 @@ class GCPClient(ProviderClient):
         begin = datetime.now()
         if self._config.writer_queue == QueueType.PUBSUB:
             data["timestamp"] = request_id
+            data["data"] = base64.b64encode(data["data"])
             payload = json.dumps(data).encode()
             _ = self._publisher_client.publish(
                 self._topic_path, payload, data["session_id"]
