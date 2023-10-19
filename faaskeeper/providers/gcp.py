@@ -84,7 +84,8 @@ class GCPClient(ProviderClient):
         begin = datetime.now()
         if self._config.writer_queue == QueueType.PUBSUB:
             data["timestamp"] = request_id
-            data["data"] = base64.b64encode(data["data"]).decode()
+            if "data" in data:
+                data["data"] = base64.b64encode(data["data"]).decode()
             payload = json.dumps(data).encode()
             _ = self._publisher_client.publish(
                 self._topic_path, payload, data["session_id"]
