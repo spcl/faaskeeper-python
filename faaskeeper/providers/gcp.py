@@ -46,21 +46,20 @@ class GCPClient(ProviderClient):
             raise NotImplementedError()
     
     def get_data_helper(self, path, include_data: bool, include_children: bool) -> Optional[Node]:
+        begin = datetime.now()
         blob = self._bucket.get_blob(path)
         if blob is not None:
             file_content = blob.download_as_bytes()
+            end = datetime.now()
+            if BENCHMARKING:
+                StorageStatistics.instance().add_read_time(int((end - begin) / timedelta(microseconds=1))) # 1 entity read
             return S3Reader.deserialize(path, file_content, include_children, include_data)
         return None
 
     def get_data(self, path: str, watch_callback: Optional[WatchCallbackType], listen_address: Tuple[str, int]) -> Tuple[Node, Optional[Watch]]:
         # read data
-        begin = datetime.now()
         node = self.get_data_helper(path, True, True)
         if node is not None:
-            end = datetime.now()
-            if BENCHMARKING:
-                StorageStatistics.instance().add_read_time(int((end - begin) / timedelta(microseconds=1))) # 1 entity read
-            
             watch: Optional[Watch] = None
             if watch_callback is not None:
                 """
