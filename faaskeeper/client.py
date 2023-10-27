@@ -20,6 +20,7 @@ from faaskeeper.operations import (
     SetData,
 )
 from faaskeeper.providers.aws import AWSClient
+from faaskeeper.providers.gcp import GCPClient
 from faaskeeper.queue import (
     EventQueue,
     ResponseListener,
@@ -44,7 +45,7 @@ class FaaSKeeperClient:
     :param debug: full debug output of all operations
     """
 
-    _providers = {CloudProvider.AWS: AWSClient}
+    _providers = {CloudProvider.AWS: AWSClient, CloudProvider.GCP: GCPClient}
 
     def __init__(
         self,

@@ -1,5 +1,5 @@
 from enum import Enum
-
+from typing import Union
 
 class StorageType(Enum):
     PERSISTENT = 0
@@ -14,10 +14,11 @@ class StorageType(Enum):
 class QueueType(Enum):
     DYNAMODB = 0
     SQS = 1
+    PUBSUB =  2
 
     @staticmethod
     def deserialize(val: str) -> "QueueType":
-        return {"dynamodb": QueueType.DYNAMODB, "sqs": QueueType.SQS}[val]
+        return {"dynamodb": QueueType.DYNAMODB, "sqs": QueueType.SQS, "pubsub": QueueType.PUBSUB}[val]
 
 
 class ClientChannel(Enum):
@@ -31,14 +32,15 @@ class ClientChannel(Enum):
 
 class CloudProvider(Enum):
     AWS = 0
+    GCP = 1
 
     @staticmethod
     def serialize(val: "CloudProvider") -> str:
-        return {CloudProvider.AWS: "aws"}[val]
+        return {CloudProvider.AWS: "aws", CloudProvider.GCP: "gcp"}[val]
 
     @staticmethod
     def deserialize(val: str) -> "CloudProvider":
-        return {"aws": CloudProvider.AWS}[val]
+        return {"aws": CloudProvider.AWS, "gcp": CloudProvider.GCP}[val]
 
 
 class AWSConfig:
@@ -55,6 +57,33 @@ class AWSConfig:
         cfg._data_bucket = data["data-bucket"]
         return cfg
 
+class GCPConfig:
+    def __init__(self):
+        self._project_id: str
+        self._database: str
+        self._bucket_name: str
+    
+    @property
+    def project_id(self) -> str:
+        return self._project_id
+    
+    @property
+    def database(self) -> str:
+        return self._database
+
+    @property
+    def bucket_name(self) -> str:
+        return self._bucket_name
+    
+    @staticmethod
+    def deserialize(data: dict) -> "GCPConfig":
+        cfg = GCPConfig()
+        cfg._project_id = data["project-id"]
+        cfg._database = data["database-name"]
+        deployment_name = data["deployment-name"]
+        bucket_name = data["bucket-name"]
+        cfg._bucket_name = f"sls-gcp-{deployment_name}-{bucket_name}"
+        return cfg
 
 class Config:
     def __init__(self):
@@ -65,7 +94,7 @@ class Config:
         self._heartbeat_frequency: int
         self._user_storage: StorageType
         self._writer_queue: QueueType
-        self._provider_cfg: AWSConfig
+        self._provider_cfg: Union[AWSConfig, GCPConfig]
         self._client_channel: ClientChannel
 
     @property
@@ -97,7 +126,7 @@ class Config:
         return self._writer_queue
 
     @property
-    def provider_config(self) -> AWSConfig:
+    def provider_config(self) -> Union[AWSConfig, GCPConfig]:
         return self._provider_cfg
 
     @property
@@ -118,6 +147,9 @@ class Config:
 
         if cfg._provider == CloudProvider.AWS:
             cfg._provider_cfg = AWSConfig.deserialize(data["aws"])
+        elif cfg._provider == CloudProvider.GCP:
+            data["gcp"]["deployment-name"] = cfg._deployment_name
+            cfg._provider_cfg = GCPConfig.deserialize(data["gcp"])
         else:
             raise NotImplementedError()
 

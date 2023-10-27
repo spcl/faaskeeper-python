@@ -1,7 +1,8 @@
 from faaskeeper.client import FaaSKeeperClient
 
+config = None
 try:
-    client = FaaSKeeperClient("aws", "faaskeeper-dev", port=13001)
+    client = FaaSKeeperClient(config, 13001, True)
     client.start()
     #ret = client.create("/root/test2", b"test")
     #print(ret)
