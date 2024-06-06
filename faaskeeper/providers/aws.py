@@ -164,7 +164,7 @@ class AWSClient(ProviderClient):
         except Exception as e:
             raise AWSException(
                 f"Failure on AWS client on DynamoDB table "
-                f"faaskeeper-{self._config.deployment_name}-write-queue: {str(e)}"
+                f"faaskeeper-{self._config.deployment_name}-users: {str(e)}"
             )
 
     def register_watch(
