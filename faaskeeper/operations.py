@@ -92,6 +92,7 @@ class CreateNode(RequestOperation):
         super().__init__(session_id, path)
         self._value = value
         self._value_encoded: Optional[str] = None
+        self._flags = flags
 
     def generate_request(self) -> dict:
         return {
@@ -99,7 +100,7 @@ class CreateNode(RequestOperation):
             "path": self._path,
             "session_id": self._session_id,
             "version": -1,
-            "flags": 0,
+            "flags": self._flags,
             "data": self._value,
         }
 

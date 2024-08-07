@@ -27,6 +27,16 @@ class Node:
         self._children: Optional[List[str]] = None
         self._created_version: Optional[Version] = None
         self._modified_version: Optional[Version] = None
+        self._flag: Optional[int] = None
+
+    @property
+    def flag(self) -> int:
+        assert self._flag is not None
+        return self._flag
+
+    @flag.setter
+    def flag(self, flag: int):
+        self._flag = flag
 
     @property
     def path(self) -> str:
